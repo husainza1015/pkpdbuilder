@@ -50,18 +50,11 @@ PROVIDERS = {
     "google": {
         "name": "Google (Gemini)",
         "models": [
-            # Gemini 3.x (latest)
-            "gemini-3.1-pro",
-            "gemini-3-pro",
-            "gemini-3-flash",
-            # Gemini 2.5
             "gemini-2.5-pro",
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
-            # Gemini 2.0
-            # gemini-2.0-flash — deprecated by Google, removed
         ],
-        "default": "gemini-2.5-pro",
+        "default": "gemini-2.5-flash",
         "env_key": "GOOGLE_API_KEY",
         "auth_methods": ["api_key"],
         "docs": "https://aistudio.google.com/apikey",
