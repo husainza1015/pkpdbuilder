@@ -1,0 +1,148 @@
+# pkpdbuilder — The Pharmacometrician's Co-Pilot
+
+AI-powered pharmacometrics analysis. Load data, fit models, run diagnostics, simulate doses, generate reports — all through natural language.
+
+## Quick Start
+
+```bash
+# Install
+pip install -e ".[all]"    # all LLM providers
+pip install -e ".[anthropic]"  # Claude only
+
+# First-time setup (interactive onboarding)
+pkpdbuilder setup
+
+# Start a new drug program project
+pkpdbuilder init "Tirzepatide" -i "Obesity" -a popPK
+
+# Interactive mode
+pmx
+
+# Single query
+pkpdbuilder ask "Load theo_sd.csv and run a full PopPK analysis"
+```
+
+## What It Does
+
+Talk to `pkpdbuilder` like you'd talk to a colleague:
+
+```
+pkpdbuilder> Load the theophylline dataset and analyze it
+
+Loading theo_sd.csv...
+✓ 12 subjects, 132 observations, oral dosing
+Running NCA... ✓ gmean t½ = 8.0 h
+Fitting 1-CMT oral... ✓ OFV=-242.30
+Fitting 2-CMT oral... ✓ OFV=-50.24
+→ 1-CMT preferred (BIC)
+Diagnostics... ✓ GOF, VPC, ETAs
+Covariate screening... ✓ 3 pairs tested
+Report generated ✓
+
+pkpdbuilder> Export to NONMEM and Pumas
+
+✓ NONMEM control stream: ./pkpdbuilder_output/M1.ctl
+✓ Pumas (Julia): ./pkpdbuilder_output/M1.jl
+```
+
+## 33 Domain Tools
+
+| Category | Tools |
+|----------|-------|
+| **Data** | `load_dataset`, `summarize_dataset`, `plot_data`, `dataset_qc`, `handle_blq` |
+| **Modeling** | `fit_model`, `fit_from_library`, `compare_models` |
+| **Diagnostics** | `goodness_of_fit`, `vpc`, `eta_plots`, `parameter_table`, `individual_fits` |
+| **NCA** | `run_nca` (PKNCA) |
+| **Covariates** | `covariate_screening`, `stepwise_covariate_model`, `forest_plot` |
+| **Simulation** | `simulate_regimen`, `population_simulation` |
+| **Literature** | `search_pubmed`, `lookup_drug` |
+| **Reports** | `generate_report` (HTML), `generate_beamer_slides` (PDF) |
+| **Apps** | `build_shiny_app` |
+| **Cross-platform** | `list_backends`, `export_model`, `import_model` |
+| **Model Library** | `list_model_library`, `get_model_code` |
+| **Memory** | `memory_read`, `memory_write`, `memory_search`, `init_project` |
+
+## 59-Model Library
+
+Pre-built nlmixr2 models translated from Monolix. Ready to fit with `fit_from_library`:
+
+| Category | Count | Examples |
+|----------|-------|---------|
+| **PK** | 28 | 1/2/3-CMT, oral/IV, MM elimination, transit absorption, allometric, mAb, parent-metabolite |
+| **PD** | 18 | Direct Emax/Imax, effect compartment, IDR Types I-IV (all with sigmoid variants) |
+| **PK/PD** | 5 | Combined models (oral+Emax, IV+IDR, effect compartment) |
+| **TMDD** | 6 | Full, QSS, QE × 1-CMT/2-CMT, irreversible binding |
+| **Advanced** | 2 | Weibull TTE, Poisson count |
+
+```python
+# Browse the library
+pkpdbuilder> Show me all transit absorption models
+pkpdbuilder> Fit the TMDD QSS 2-compartment model to my data
+```
+
+## Multi-Provider Support
+
+| Provider | Models |
+|----------|--------|
+| **Anthropic** | Claude Opus 4.6, Sonnet 4.6, Opus 4.5, Sonnet 4.5, Haiku 4.5 |
+| **OpenAI** | GPT-5.2, 5.1, 5, 4.1, 4o, o4-mini, o3 |
+| **Google** | Gemini 3.1 Pro, 3 Pro/Flash, 2.5 Pro/Flash |
+| **DeepSeek** | V3.2, R1 |
+| **xAI** | Grok 4.1 Fast, 4, 3 |
+
+Switch on the fly: `/provider openai` or `/model gemini-3.1-pro`
+
+## Cross-Platform Export
+
+Fit once with nlmixr2, export to any platform:
+- **NONMEM** (.ctl control stream)
+- **Monolix** (.mlxtran project)
+- **Phoenix NLME** (.mdl PML)
+- **Pumas** (.jl Julia)
+- **mrgsolve** (.cpp simulation)
+
+## Project Memory
+
+Drug programs span months. `pkpdbuilder init` creates a project scaffold with:
+- `MEMORY.md` — long-term decisions, regulatory feedback
+- `memory/YYYY-MM-DD.md` — daily session notes
+- `memory/decisions.jsonl` — why you chose each model
+- `memory/model_history.jsonl` — full audit trail
+
+Designed for Claude Code projects that live for the entire drug lifecycle.
+
+## Requirements
+
+- Python 3.10+
+- R 4.x with: `nlmixr2`, `mrgsolve`, `ggplot2`, `vpc`, `xpose`, `dplyr`, `jsonlite`, `PKNCA`
+- API key for at least one LLM provider
+
+```bash
+# Check R environment
+pkpdbuilder doctor
+```
+
+## Architecture
+
+```
+User → pkpdbuilder CLI (Python) → LLM (tool-use) → R Backend (nlmixr2/mrgsolve/PKNCA)
+                                ↕
+                        59-Model Library
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show help |
+| `/tools` | List all 29 tools |
+| `/status` | Loaded dataset info |
+| `/provider` | Show/switch AI provider |
+| `/model` | Show/switch model |
+| `/doctor` | Check R environment |
+| `/reset` | Clear conversation |
+| `/quit` | Exit |
+
+## License
+
+MIT

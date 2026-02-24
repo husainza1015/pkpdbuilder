@@ -1,0 +1,142 @@
+{
+  "total_s": 71.2,
+  "passed": 27,
+  "total": 27,
+  "steps": [
+    {
+      "step": "load_dataset",
+      "time_s": 0.0,
+      "success": true
+    },
+    {
+      "step": "summarize_dataset",
+      "time_s": 0.0,
+      "success": true
+    },
+    {
+      "step": "plot_data",
+      "time_s": 1.3,
+      "success": true
+    },
+    {
+      "step": "dataset_qc",
+      "time_s": 0.0,
+      "success": true
+    },
+    {
+      "step": "handle_blq_M1",
+      "time_s": 0.0,
+      "success": true
+    },
+    {
+      "step": "run_nca",
+      "time_s": 1.2,
+      "success": true
+    },
+    {
+      "step": "fit_model_1cmt",
+      "time_s": 9.3,
+      "success": true
+    },
+    {
+      "step": "fit_model_2cmt",
+      "time_s": 17.0,
+      "success": true
+    },
+    {
+      "step": "list_model_library",
+      "time_s": 0.0,
+      "success": true
+    },
+    {
+      "step": "fit_from_library",
+      "time_s": 12.8,
+      "success": true
+    },
+    {
+      "step": "compare_models",
+      "time_s": 0.0,
+      "success": true
+    },
+    {
+      "step": "goodness_of_fit",
+      "time_s": 2.6,
+      "success": true
+    },
+    {
+      "step": "vpc",
+      "time_s": 5.4,
+      "success": true
+    },
+    {
+      "step": "eta_plots",
+      "time_s": 1.5,
+      "success": true
+    },
+    {
+      "step": "parameter_table",
+      "time_s": 0.0,
+      "success": true
+    },
+    {
+      "step": "individual_fits",
+      "time_s": 2.2,
+      "success": true
+    },
+    {
+      "step": "covariate_screening",
+      "time_s": 2.3,
+      "success": true
+    },
+    {
+      "step": "stepwise_covariate_model",
+      "time_s": 1.9,
+      "success": true
+    },
+    {
+      "step": "forest_plot",
+      "time_s": 1.8,
+      "success": true
+    },
+    {
+      "step": "simulate_regimen",
+      "time_s": 2.3,
+      "success": true
+    },
+    {
+      "step": "population_simulation",
+      "time_s": 2.8,
+      "success": true
+    },
+    {
+      "step": "generate_report",
+      "time_s": 0.0,
+      "success": true
+    },
+    {
+      "step": "beamer_slides",
+      "time_s": 0.0,
+      "success": true
+    },
+    {
+      "step": "export_nonmem",
+      "time_s": 2.0,
+      "success": true
+    },
+    {
+      "step": "export_pumas",
+      "time_s": 1.9,
+      "success": true
+    },
+    {
+      "step": "export_mrgsolve",
+      "time_s": 2.0,
+      "success": true
+    },
+    {
+      "step": "list_backends",
+      "time_s": 0.5,
+      "success": true
+    }
+  ]
+}

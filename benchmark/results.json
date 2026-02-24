@@ -1,0 +1,121 @@
+{
+  "total_s": 54.1,
+  "steps": [
+    {
+      "step": "load_dataset",
+      "time_s": 0.0,
+      "success": true,
+      "message": "OK"
+    },
+    {
+      "step": "summarize_dataset",
+      "time_s": 0.0,
+      "success": true,
+      "message": "OK"
+    },
+    {
+      "step": "plot_data",
+      "time_s": 1.3,
+      "success": true,
+      "message": "Generated 1 data exploration plots"
+    },
+    {
+      "step": "run_nca",
+      "time_s": 1.3,
+      "success": true,
+      "message": "NCA complete (PKNCA v0.12.1). 12 subjects. Geometric mean t\u00bd = 8.0 h, AUCinf = 114.8"
+    },
+    {
+      "step": "fit_model_1cmt",
+      "time_s": 10.2,
+      "success": true,
+      "message": "Model M1 converged successfully. OFV = -242.30"
+    },
+    {
+      "step": "fit_model_2cmt",
+      "time_s": 21.8,
+      "success": true,
+      "message": "Model M2 converged successfully. OFV = -50.24"
+    },
+    {
+      "step": "compare_models",
+      "time_s": 0.0,
+      "success": true,
+      "message": "OK"
+    },
+    {
+      "step": "goodness_of_fit",
+      "time_s": 1.9,
+      "success": true,
+      "message": "GOF plots saved: ./pmx_output/gof_M1.png"
+    },
+    {
+      "step": "vpc",
+      "time_s": 4.8,
+      "success": true,
+      "message": "VPC saved: ./pmx_output/vpc_M1.png (200 simulations)"
+    },
+    {
+      "step": "eta_plots",
+      "time_s": 1.5,
+      "success": true,
+      "message": "ETA plots saved: ./pmx_output/eta_M1.png"
+    },
+    {
+      "step": "parameter_table",
+      "time_s": 0.0,
+      "success": true,
+      "message": "OK"
+    },
+    {
+      "step": "covariate_screening",
+      "time_s": 2.5,
+      "success": true,
+      "message": "Screened 2 covariate-parameter pairs. 0 significant (p<0.05), 0 recommended (p<0.01)."
+    },
+    {
+      "step": "simulate_regimen",
+      "time_s": 2.2,
+      "success": true,
+      "message": "Simulation complete. Cmax = 9.525 at t = 145.8 h"
+    },
+    {
+      "step": "generate_report",
+      "time_s": 0.0,
+      "success": true,
+      "message": "Report generated: ./pmx_output/theophylline_popPK_report.html"
+    },
+    {
+      "step": "generate_beamer_slides",
+      "time_s": 0.0,
+      "success": true,
+      "message": "Beamer slides saved: ./pmx_output/theophylline_slides.Rmd. Render with: Rscript -e \"rmarkdown::rende"
+    },
+    {
+      "step": "export_nonmem",
+      "time_s": 1.9,
+      "success": true,
+      "message": "NONMEM control stream exported: ./pmx_output/M1.ctl (manual translation)"
+    },
+    {
+      "step": "export_pumas",
+      "time_s": 2.1,
+      "success": true,
+      "message": "Pumas (Julia) model exported: ./pmx_output/M1.jl"
+    },
+    {
+      "step": "export_mrgsolve",
+      "time_s": 2.1,
+      "success": true,
+      "message": "mrgsolve model exported: ./pmx_output/M1.cpp"
+    },
+    {
+      "step": "list_backends",
+      "time_s": 0.5,
+      "success": true,
+      "message": "1 backends available: nlmixr2"
+    }
+  ],
+  "n_success": 19,
+  "n_total": 19
+}

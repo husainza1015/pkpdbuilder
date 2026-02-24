@@ -1,0 +1,2 @@
+[console_scripts]
+pkpdbuilder = pkpdbuilder.cli:main
