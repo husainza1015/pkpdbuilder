@@ -480,6 +480,11 @@ class PKPDBuilderAgent:
                     schema_kwargs["description"] = prop["description"]
                 if "enum" in prop:
                     schema_kwargs["enum"] = prop["enum"]
+                # Gemini requires 'items' for array types
+                if prop_type == "ARRAY":
+                    items_schema = prop.get("items", {"type": "string"})
+                    items_type = items_schema.get("type", "string").upper()
+                    schema_kwargs["items"] = types.Schema(type=type_map.get(items_type, "STRING"))
                 prop_schemas[name] = types.Schema(**schema_kwargs)
             
             func_decl = types.FunctionDeclaration(
