@@ -1,148 +1,114 @@
-# pkpdbuilder — The Pharmacometrician's Co-Pilot
+# PKPDBuilder CLI
 
-AI-powered pharmacometrics analysis. Load data, fit models, run diagnostics, simulate doses, generate reports — all through natural language.
+**The Pharmacometrician's Co-Pilot** — an AI-powered terminal tool for population PK/PD analysis.
+
+33 tools • 59 models • 5 providers • Local-first
 
 ## Quick Start
 
 ```bash
-# Install
-pip install -e ".[all]"    # all LLM providers
-pip install -e ".[anthropic]"  # Claude only
+# Clone
+git clone https://github.com/husainza1015/pkpdbuilder.git
+cd pkpdbuilder
 
-# First-time setup (interactive onboarding)
+# Install
+pip install -e .
+
+# First-time setup (choose provider, enter API key)
 pkpdbuilder setup
 
-# Start a new drug program project
-pkpdbuilder init "Tirzepatide" -i "Obesity" -a popPK
-
-# Interactive mode
-pmx
-
-# Single query
-pkpdbuilder ask "Load theo_sd.csv and run a full PopPK analysis"
+# Launch
+pkpdbuilder
 ```
 
-## What It Does
+## Prerequisites
 
-Talk to `pkpdbuilder` like you'd talk to a colleague:
+- **Python 3.10+**
+- **R 4.2+** with `nlmixr2` and `mrgsolve` installed
+- An API key for at least one provider (or Ollama for fully local use)
 
-```
-pkpdbuilder> Load the theophylline dataset and analyze it
+## Supported Providers
 
-Loading theo_sd.csv...
-✓ 12 subjects, 132 observations, oral dosing
-Running NCA... ✓ gmean t½ = 8.0 h
-Fitting 1-CMT oral... ✓ OFV=-242.30
-Fitting 2-CMT oral... ✓ OFV=-50.24
-→ 1-CMT preferred (BIC)
-Diagnostics... ✓ GOF, VPC, ETAs
-Covariate screening... ✓ 3 pairs tested
-Report generated ✓
-
-pkpdbuilder> Export to NONMEM and Pumas
-
-✓ NONMEM control stream: ./pkpdbuilder_output/M1.ctl
-✓ Pumas (Julia): ./pkpdbuilder_output/M1.jl
-```
-
-## 33 Domain Tools
-
-| Category | Tools |
-|----------|-------|
-| **Data** | `load_dataset`, `summarize_dataset`, `plot_data`, `dataset_qc`, `handle_blq` |
-| **Modeling** | `fit_model`, `fit_from_library`, `compare_models` |
-| **Diagnostics** | `goodness_of_fit`, `vpc`, `eta_plots`, `parameter_table`, `individual_fits` |
-| **NCA** | `run_nca` (PKNCA) |
-| **Covariates** | `covariate_screening`, `stepwise_covariate_model`, `forest_plot` |
-| **Simulation** | `simulate_regimen`, `population_simulation` |
-| **Literature** | `search_pubmed`, `lookup_drug` |
-| **Reports** | `generate_report` (HTML), `generate_beamer_slides` (PDF) |
-| **Apps** | `build_shiny_app` |
-| **Cross-platform** | `list_backends`, `export_model`, `import_model` |
-| **Model Library** | `list_model_library`, `get_model_code` |
-| **Memory** | `memory_read`, `memory_write`, `memory_search`, `init_project` |
-
-## 59-Model Library
-
-Pre-built nlmixr2 models translated from Monolix. Ready to fit with `fit_from_library`:
-
-| Category | Count | Examples |
+| Provider | Model | API Key |
 |----------|-------|---------|
-| **PK** | 28 | 1/2/3-CMT, oral/IV, MM elimination, transit absorption, allometric, mAb, parent-metabolite |
-| **PD** | 18 | Direct Emax/Imax, effect compartment, IDR Types I-IV (all with sigmoid variants) |
-| **PK/PD** | 5 | Combined models (oral+Emax, IV+IDR, effect compartment) |
-| **TMDD** | 6 | Full, QSS, QE × 1-CMT/2-CMT, irreversible binding |
-| **Advanced** | 2 | Weibull TTE, Poisson count |
+| Anthropic | Claude Sonnet/Opus | [console.anthropic.com](https://console.anthropic.com) |
+| OpenAI | GPT-4o/o1 | [platform.openai.com](https://platform.openai.com) |
+| Google | Gemini 2.5 Pro/Flash | [aistudio.google.com](https://aistudio.google.com/apikey) |
+| Ollama | Llama 3.3, DeepSeek-R1, etc. | None (local) |
 
-```python
-# Browse the library
-pkpdbuilder> Show me all transit absorption models
-pkpdbuilder> Fit the TMDD QSS 2-compartment model to my data
-```
-
-## Multi-Provider Support
-
-| Provider | Models |
-|----------|--------|
-| **Anthropic** | Claude Opus 4.6, Sonnet 4.6, Opus 4.5, Sonnet 4.5, Haiku 4.5 |
-| **OpenAI** | GPT-5.2, 5.1, 5, 4.1, 4o, o4-mini, o3 |
-| **Google** | Gemini 3.1 Pro, 3 Pro/Flash, 2.5 Pro/Flash |
-| **DeepSeek** | V3.2, R1 |
-| **xAI** | Grok 4.1 Fast, 4, 3 |
-
-Switch on the fly: `/provider openai` or `/model gemini-3.1-pro`
-
-## Cross-Platform Export
-
-Fit once with nlmixr2, export to any platform:
-- **NONMEM** (.ctl control stream)
-- **Monolix** (.mlxtran project)
-- **Phoenix NLME** (.mdl PML)
-- **Pumas** (.jl Julia)
-- **mrgsolve** (.cpp simulation)
-
-## Project Memory
-
-Drug programs span months. `pkpdbuilder init` creates a project scaffold with:
-- `MEMORY.md` — long-term decisions, regulatory feedback
-- `memory/YYYY-MM-DD.md` — daily session notes
-- `memory/decisions.jsonl` — why you chose each model
-- `memory/model_history.jsonl` — full audit trail
-
-Designed for Claude Code projects that live for the entire drug lifecycle.
-
-## Requirements
-
-- Python 3.10+
-- R 4.x with: `nlmixr2`, `mrgsolve`, `ggplot2`, `vpc`, `xpose`, `dplyr`, `jsonlite`, `PKNCA`
-- API key for at least one LLM provider
+## Local / Air-Gapped Mode (Ollama)
 
 ```bash
-# Check R environment
-pkpdbuilder doctor
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull a model
+ollama pull llama3.3
+
+# Setup PKPDBuilder with Ollama — no API key needed
+pkpdbuilder setup  # choose "ollama"
 ```
 
-## Architecture
+All data stays on your machine. No external API calls.
+
+## Usage
 
 ```
-User → pkpdbuilder CLI (Python) → LLM (tool-use) → R Backend (nlmixr2/mrgsolve/PKNCA)
-                                ↕
-                        59-Model Library
+pkpdbuilder                  # Interactive session
+pkpdbuilder tools            # List all 33 tools
+pkpdbuilder --version        # Version check
 ```
 
-## Commands
+### Interactive Commands
 
-| Command | Description |
-|---------|-------------|
-| `/help` | Show help |
-| `/tools` | List all 29 tools |
-| `/status` | Loaded dataset info |
-| `/provider` | Show/switch AI provider |
-| `/model` | Show/switch model |
-| `/doctor` | Check R environment |
-| `/reset` | Clear conversation |
-| `/quit` | Exit |
+```
+/help       Full command list
+/tools      Available tools
+/profile    Your adaptive learning profile
+/forget     Reset learning profile
+/audit      Recent API call log
+/local      Switch to Ollama
+```
 
-## License
+### Example Prompts
 
-MIT
+```
+> Load the dataset from data/pk_study.csv and summarize it
+> Fit a 2-compartment oral model with allometric scaling on weight
+> Generate goodness-of-fit plots for the last model
+> Run a VPC with 500 simulations
+> Compare all fitted models and recommend the best one
+> Export the final model to NONMEM format
+> Generate a PopPK analysis report
+```
+
+## Model Library
+
+59 pre-built models across 6 categories:
+
+- **PK Models (28):** 1/2/3-CMT, oral/IV/infusion, linear/MM elimination, lag time, parallel absorption
+- **PD Models (18):** Direct Emax/Imax, effect compartment, indirect response (IDR Types I-IV)
+- **PK/PD Models (5):** Linked PK-PD with various response models
+- **TMDD Models (6):** Full, QSS, QE, irreversible binding
+- **Advanced (2):** Time-to-event (Weibull), count data (Poisson)
+
+## Project Structure
+
+```
+pkpdbuilder/
+├── cli.py          # CLI entry point, interactive loop
+├── agent.py        # AI agent with tool-calling
+├── config.py       # Providers, models, API key management
+├── r_bridge.py     # R/nlmixr2/mrgsolve interface
+├── learner.py      # Adaptive learning engine
+├── audit.py        # API call logging & cost tracking
+└── tools/          # 33 pharmacometric tools
+```
+
+## Developer
+
+**Husain Z Attarwala, PhD**
+
+---
+
+*For research and educational purposes. Not for clinical decision-making.*
