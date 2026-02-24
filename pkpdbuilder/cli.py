@@ -73,9 +73,9 @@ def _render_banner():
     tagline.append(f"  {'─' * 55}\n", style="dim")
     tagline.append("  ⚗  33 tools", style="rgb(168,85,247)")
     tagline.append("  •  ", style="dim")
-    tagline.append("59 models", style="rgb(99,102,241)")
+    tagline.append("30+ models", style="rgb(99,102,241)")
     tagline.append("  •  ", style="dim")
-    tagline.append("5 providers", style="rgb(6,182,212)")
+    tagline.append("3 providers", style="rgb(6,182,212)")
     tagline.append("  •  ", style="dim")
     tagline.append(f"v{VERSION}\n", style="dim bold")
     tagline.append("  Developer: ", style="dim")
@@ -98,7 +98,7 @@ HELP_TEXT = """
 | `/model` | Show/switch model |
 | `/profile` | View learned preferences and usage stats |
 | `/audit` | View LLM API call log, tokens, and costs |
-| `/local [model]` | Switch to Ollama (local LLM, no data leaves machine) |
+| `/oauth` | Show Claude Max OAuth setup instructions |
 | `/forget` | Reset learned preferences (start fresh) |
 | `/quit` | Exit pkpdbuilder |
 
@@ -209,16 +209,24 @@ def setup():
             if auth_method == "b":
                 # Claude Max OAuth — check for existing Claude Code credentials
                 claude_config = Path.home() / ".claude" / "config.json"
-                if claude_config.exists():
+                claude_creds = Path.home() / ".claude" / "credentials.json"
+                if claude_config.exists() or claude_creds.exists():
                     console.print("  [green]✓ Claude Code credentials found![/green]")
-                    console.print("  PMX will use your Claude Max subscription via Claude Code.")
+                    console.print("  PMX will use your Claude Max subscription via OAuth.")
                     config["auth_method"] = "claude_oauth"
-                    # Store a sentinel — actual auth handled by Claude Code
                     save_api_key(provider, "__CLAUDE_MAX_OAUTH__")
                 else:
-                    console.print("  [yellow]Claude Code not found.[/yellow]")
-                    console.print("  Install: [cyan]npm install -g @anthropic-ai/claude-code[/cyan]")
-                    console.print("  Then run: [cyan]claude login[/cyan]")
+                    console.print("  [yellow]Claude Code credentials not found.[/yellow]")
+                    console.print()
+                    console.print("  [bold]How to get your Claude OAuth token:[/bold]")
+                    console.print("  1. Install Claude Code: [cyan]npm install -g @anthropic-ai/claude-code[/cyan]")
+                    console.print("  2. Run: [cyan]claude login[/cyan]")
+                    console.print("  3. Complete the browser OAuth flow")
+                    console.print("  4. Re-run: [cyan]pkpdbuilder setup[/cyan]")
+                    console.print()
+                    console.print("  [dim]This uses your Claude Max subscription ($100/mo or $200/mo)[/dim]")
+                    console.print("  [dim]instead of per-API-call billing. Much cheaper for heavy use![/dim]")
+                    console.print()
                     console.print("  Falling back to API key...\n")
                     auth_method = "a"
             
@@ -551,16 +559,18 @@ def interactive_mode():
                         console.print(f"    {ts}  {model:<20} {tokens:>6} tok  ${cost:.4f}{ds}  {tools}")
                 console.print()
                 continue
-            elif cmd == "/local":
-                parts = user_input.split()
-                model_name = parts[1] if len(parts) >= 2 else None
-                try:
-                    agent = PKPDBuilderAgent(provider="ollama", model=model_name)
-                    console.print(f"[green]Switched to Ollama (local) / {agent.model}[/green]")
-                    console.print("[dim]Data stays on your machine. No API calls.[/dim]")
-                except Exception as e:
-                    console.print(f"[red]{e}[/red]")
-                    console.print("[dim]Is Ollama running? Start with: ollama serve[/dim]")
+            elif cmd == "/oauth":
+                console.print("\n[bold]Claude Max OAuth Setup[/bold]\n")
+                console.print("  Use your Claude Max subscription instead of per-API-call billing.\n")
+                console.print("  [bold]Steps:[/bold]")
+                console.print("  1. Install Claude Code: [cyan]npm install -g @anthropic-ai/claude-code[/cyan]")
+                console.print("  2. Run: [cyan]claude login[/cyan]")
+                console.print("  3. Complete the browser OAuth flow")
+                console.print("  4. Run: [cyan]pkpdbuilder setup[/cyan] and choose option (b)")
+                console.print()
+                console.print("  [dim]Works with Claude Max ($100/mo) or Claude Max+ ($200/mo)[/dim]")
+                console.print("  [dim]Unlimited usage at flat rate — no per-token billing.[/dim]")
+                console.print()
                 continue
             else:
                 console.print(f"[yellow]Unknown command: {cmd}. Type /help[/yellow]")

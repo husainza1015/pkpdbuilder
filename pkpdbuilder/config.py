@@ -67,51 +67,6 @@ PROVIDERS = {
         "auth_methods": ["api_key"],
         "docs": "https://aistudio.google.com/apikey",
     },
-    "deepseek": {
-        "name": "DeepSeek",
-        "models": [
-            "deepseek-v3.2",
-            "deepseek-r1",
-        ],
-        "default": "deepseek-v3.2",
-        "env_key": "DEEPSEEK_API_KEY",
-        "auth_methods": ["api_key"],
-        "docs": "https://platform.deepseek.com/api_keys",
-        "base_url": "https://api.deepseek.com/v1",
-    },
-    "xai": {
-        "name": "xAI (Grok)",
-        "models": [
-            "grok-4.1-fast",
-            "grok-4",
-            "grok-3",
-            "grok-3-mini",
-        ],
-        "default": "grok-4.1-fast",
-        "env_key": "XAI_API_KEY",
-        "auth_methods": ["api_key"],
-        "docs": "https://console.x.ai",
-        "base_url": "https://api.x.ai/v1",
-    },
-    "ollama": {
-        "name": "Ollama (Local)",
-        "models": [
-            "llama3.3",
-            "qwen2.5-coder",
-            "deepseek-r1:14b",
-            "deepseek-r1:32b",
-            "mistral",
-            "codestral",
-            "phi4",
-            "gemma3",
-        ],
-        "default": "llama3.3",
-        "env_key": "",
-        "auth_methods": ["none"],
-        "docs": "https://ollama.ai",
-        "base_url": "http://localhost:11434/v1",
-        "local": True,
-    },
 }
 
 KEYRING_SERVICE = "pkpdbuilder"

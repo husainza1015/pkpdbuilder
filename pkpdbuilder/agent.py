@@ -125,19 +125,65 @@ class PKPDBuilderAgent:
         """Initialize the appropriate SDK client."""
         if self.provider == "anthropic":
             from anthropic import Anthropic
-            self.client = Anthropic(api_key=self.api_key)
-        elif self.provider in ("openai", "deepseek", "xai", "ollama"):
+            if self.api_key == "__CLAUDE_MAX_OAUTH__":
+                # Use Claude Max subscription via OAuth token
+                oauth_token = self._get_claude_oauth_token()
+                if not oauth_token:
+                    raise ValueError(
+                        "Claude Max OAuth token not found. Run 'claude login' first.\n"
+                        "See: https://docs.anthropic.com/en/docs/claude-code/cli-usage"
+                    )
+                self.client = Anthropic(api_key=oauth_token)
+            else:
+                self.client = Anthropic(api_key=self.api_key)
+        elif self.provider == "openai":
             from openai import OpenAI
-            provider_info = PROVIDERS.get(self.provider, {})
-            base_url = provider_info.get("base_url")
-            api_key = self.api_key if self.provider != "ollama" else "ollama"
-            self.client = OpenAI(api_key=api_key, **({"base_url": base_url} if base_url else {}))
+            self.client = OpenAI(api_key=self.api_key)
         elif self.provider == "google":
-            import google.generativeai as genai
-            genai.configure(api_key=self.api_key)
-            self.client = genai
+            from google import genai
+            self.client = genai.Client(api_key=self.api_key)
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
+    
+    def _get_claude_oauth_token(self) -> str:
+        """Extract OAuth token from Claude Code credentials for Claude Max subscribers.
+        
+        To get your OAuth token:
+        1. Install Claude Code: npm install -g @anthropic-ai/claude-code
+        2. Run: claude login
+        3. Complete the browser OAuth flow
+        4. Token is stored in ~/.claude/config.json
+        
+        This lets you use your Claude Max subscription ($100/mo or $200/mo)
+        instead of paying per-API-call.
+        """
+        import json
+        from pathlib import Path
+        
+        # Check Claude Code config
+        config_path = Path.home() / ".claude" / "config.json"
+        if config_path.exists():
+            try:
+                config = json.loads(config_path.read_text())
+                # Claude Code stores OAuth token in config
+                token = config.get("oauthToken") or config.get("oauth_token")
+                if token:
+                    return token
+            except (json.JSONDecodeError, KeyError):
+                pass
+        
+        # Check Claude credentials file
+        creds_path = Path.home() / ".claude" / "credentials.json"
+        if creds_path.exists():
+            try:
+                creds = json.loads(creds_path.read_text())
+                token = creds.get("token") or creds.get("oauth_token")
+                if token:
+                    return token
+            except (json.JSONDecodeError, KeyError):
+                pass
+        
+        return ""
     
     def chat(self, user_message: str) -> str:
         """Send a message and get a response, handling tool calls."""
@@ -146,7 +192,7 @@ class PKPDBuilderAgent:
         
         if self.provider == "anthropic":
             return self._chat_anthropic()
-        elif self.provider in ("openai", "deepseek", "xai", "ollama"):
+        elif self.provider == "openai":
             return self._chat_openai()
         elif self.provider == "google":
             return self._chat_google()
@@ -339,61 +385,76 @@ class PKPDBuilderAgent:
         
         return msgs
     
-    # ── Google (Gemini) ─────────────────────────────────────
+    # ── Google (Gemini) — using new google-genai SDK ───────
     
     def _chat_google(self) -> str:
-        from google.generativeai.types import content_types
-        import google.generativeai as genai
+        from google.genai import types
         
         # Build tool declarations for Gemini
         gemini_tools = self._tools_to_gemini_format()
         
-        model = genai.GenerativeModel(
-            model_name=self.model,
-            system_instruction=self._get_system_prompt(),
-            tools=gemini_tools,
+        # Build contents from message history
+        contents = self._messages_to_gemini_format()
+        
+        # Send request with tools
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=self._get_system_prompt(),
+                tools=gemini_tools,
+                max_output_tokens=self.config.get("max_tokens", 8192),
+            ),
         )
         
-        chat = model.start_chat(history=self._messages_to_gemini_format())
-        
-        # Send last user message
-        last_msg = self.messages[-1]["content"]
-        response = chat.send_message(last_msg)
-        
-        # Handle function calls
-        while response.candidates[0].content.parts:
+        # Handle function calls in a loop
+        while response.candidates and response.candidates[0].content.parts:
             has_function_call = False
-            tool_responses = []
+            function_responses = []
             
             for part in response.candidates[0].content.parts:
-                if hasattr(part, 'function_call') and part.function_call:
+                if part.function_call:
                     has_function_call = True
                     fc = part.function_call
                     args = dict(fc.args) if fc.args else {}
-                    console.print(f"  [dim]→ {fc.name}({_format_args(args)})[/dim]")
-                    result = execute_tool(fc.name, args)
-                    result_preview = result[:200] + "..." if len(result) > 200 else result
-                    console.print(f"  [dim green]✓ {result_preview}[/dim green]")
+                    result = self._run_tool(fc.name, args)
                     
-                    tool_responses.append(
-                        genai.protos.Part(function_response=genai.protos.FunctionResponse(
+                    function_responses.append(
+                        types.Part.from_function_response(
                             name=fc.name,
-                            response={"result": result}
-                        ))
+                            response={"result": result},
+                        )
                     )
             
             if not has_function_call:
                 break
             
-            response = chat.send_message(tool_responses)
+            # Append the model's response and tool results to contents
+            contents.append(response.candidates[0].content)
+            contents.append(types.Content(role="user", parts=function_responses))
+            
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=self._get_system_prompt(),
+                    tools=gemini_tools,
+                    max_output_tokens=self.config.get("max_tokens", 8192),
+                ),
+            )
         
-        text = response.text if hasattr(response, 'text') else str(response.candidates[0].content.parts[0].text)
+        text = response.text if hasattr(response, 'text') and response.text else ""
+        if not text and response.candidates:
+            for part in response.candidates[0].content.parts:
+                if hasattr(part, 'text') and part.text:
+                    text += part.text
+        
         self.messages.append({"role": "assistant", "content": text})
         return text
     
     def _tools_to_gemini_format(self):
-        """Convert tools to Gemini function declarations."""
-        import google.generativeai as genai
+        """Convert tools to Gemini function declarations using new google-genai SDK."""
+        from google.genai import types
         
         declarations = []
         for tool in self.tools:
@@ -401,39 +462,52 @@ class PKPDBuilderAgent:
             properties = schema.get("properties", {})
             required = schema.get("required", [])
             
-            # Clean properties for Gemini (no unsupported fields)
-            clean_props = {}
+            # Build property schemas
+            prop_schemas = {}
             for name, prop in properties.items():
-                clean = {"type": prop.get("type", "string").upper()}
+                prop_type = prop.get("type", "STRING").upper()
+                # Map JSON Schema types to Gemini types
+                type_map = {
+                    "STRING": "STRING",
+                    "NUMBER": "NUMBER",
+                    "INTEGER": "INTEGER",
+                    "BOOLEAN": "BOOLEAN",
+                    "ARRAY": "ARRAY",
+                    "OBJECT": "OBJECT",
+                }
+                schema_kwargs = {"type": type_map.get(prop_type, "STRING")}
                 if "description" in prop:
-                    clean["description"] = prop["description"]
+                    schema_kwargs["description"] = prop["description"]
                 if "enum" in prop:
-                    clean["enum"] = prop["enum"]
-                clean_props[name] = clean
+                    schema_kwargs["enum"] = prop["enum"]
+                prop_schemas[name] = types.Schema(**schema_kwargs)
             
-            declarations.append(genai.protos.FunctionDeclaration(
+            func_decl = types.FunctionDeclaration(
                 name=tool["name"],
-                description=tool["description"][:512],  # Gemini limit
-                parameters=genai.protos.Schema(
-                    type=genai.protos.Type.OBJECT,
-                    properties={k: genai.protos.Schema(**v) for k, v in clean_props.items()},
+                description=tool["description"][:512],
+                parameters=types.Schema(
+                    type="OBJECT",
+                    properties=prop_schemas,
                     required=required,
-                ) if clean_props else None,
-            ))
+                ) if prop_schemas else None,
+            )
+            declarations.append(func_decl)
         
-        return [genai.protos.Tool(function_declarations=declarations)]
+        return [types.Tool(function_declarations=declarations)]
     
     def _messages_to_gemini_format(self) -> list:
-        """Convert messages to Gemini history format (excluding last user msg)."""
-        history = []
-        for m in self.messages[:-1]:  # Exclude last (sent separately)
+        """Convert messages to Gemini contents format."""
+        from google.genai import types
+        
+        contents = []
+        for m in self.messages:
             role = m["role"]
             content = m.get("content", "")
             if role == "user" and isinstance(content, str):
-                history.append({"role": "user", "parts": [content]})
+                contents.append(types.Content(role="user", parts=[types.Part.from_text(content)]))
             elif role == "assistant" and isinstance(content, str):
-                history.append({"role": "model", "parts": [content]})
-        return history
+                contents.append(types.Content(role="model", parts=[types.Part.from_text(content)]))
+        return contents
     
     # ── Shared ──────────────────────────────────────────────
     
