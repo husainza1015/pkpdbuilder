@@ -1,17 +1,21 @@
 #!/usr/bin/env node
 /**
- * PKPDBuilder CLI — wraps Claude Code with pharmacometric MCP tools
+ * PKPDBuilder CLI — The Pharmacometrician's Co-Pilot
+ * Wraps Claude Code with pharmacometric MCP tools + domain knowledge
+ * 
+ * User sees: pkpdbuilder
+ * Under the hood: Claude Code + MCP server + R backend
+ * 
  * Author: Husain Z Attarwala, PhD
  */
 
 import { Command } from 'commander';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
-import { execSync, spawn } from 'child_process';
+import { execSync, spawn, spawnSync } from 'child_process';
 import { homedir } from 'os';
 import chalk from 'chalk';
 import { fileURLToPath } from 'url';
-import { findRscript } from './r-bridge.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, '..');
@@ -21,78 +25,93 @@ const program = new Command();
 
 program
   .name('pkpdbuilder')
-  .description('The Pharmacometrician\'s Co-Pilot — Claude Code + pharmacometric MCP tools')
+  .description('The Pharmacometrician\'s Co-Pilot')
   .version(VERSION);
 
-// ── Main command: launch Claude Code with MCP ──────────
+// ── Main command: launch ───────────────────────────────
 
 program
   .command('start', { isDefault: true })
-  .description('Launch Claude Code with pharmacometric tools')
+  .description('Launch PKPDBuilder')
   .action(async () => {
     printBanner();
 
-    // Check Claude Code is installed
+    // Step 1: Ensure Claude Code is installed
     if (!hasClaude()) {
-      console.log(chalk.red('\n  Claude Code not found.'));
-      console.log(chalk.dim('  Install: npm install -g @anthropic-ai/claude-code'));
-      console.log(chalk.dim('  Then:    claude login\n'));
-      process.exit(1);
+      console.log(chalk.yellow('  Setting up for first use...\n'));
+      installClaude();
     }
 
-    // Check R environment
-    checkR();
+    // Step 2: Ensure Claude Code is authenticated
+    if (!isClaudeAuthenticated()) {
+      console.log(chalk.yellow('  Authentication required.\n'));
+      console.log(chalk.dim('  PKPDBuilder uses Claude (Anthropic) as its AI engine.'));
+      console.log(chalk.dim('  You need an Anthropic API key or Claude Max subscription.\n'));
+      
+      // Run claude login interactively
+      const login = spawnSync('claude', ['login'], { stdio: 'inherit' });
+      if (login.status !== 0) {
+        console.log(chalk.red('\n  Authentication failed. Run `pkpdbuilder` again after logging in.'));
+        process.exit(1);
+      }
+      console.log(chalk.green('\n  ✓ Authenticated\n'));
+    }
 
-    // Ensure MCP config exists
+    // Step 3: Check R (non-blocking)
+    const rStatus = checkR();
+
+    // Step 4: Configure MCP server (silent)
     ensureMcpConfig();
 
-    // Ensure CLAUDE.md exists in cwd
+    // Step 5: Ensure CLAUDE.md in cwd
     ensureClaudeMd();
 
-    console.log(chalk.green('\n  ✓ Launching Claude Code with pharmacometric tools...\n'));
+    // Step 6: Launch
+    console.log(chalk.green('  ✓ Ready\n'));
+    if (!rStatus) {
+      console.log(chalk.dim('  Note: R not found — modeling tools will be unavailable.'));
+      console.log(chalk.dim('  Install R from https://cran.r-project.org for full functionality.\n'));
+    }
 
-    // Launch Claude Code
     const claude = spawn('claude', [], {
       stdio: 'inherit',
       cwd: process.cwd(),
+      env: { ...process.env },
     });
 
     claude.on('exit', (code) => process.exit(code || 0));
   });
 
-// ── Init command: scaffold project ─────────────────────
+// ── Init: scaffold a project ───────────────────────────
 
 program
   .command('init')
-  .description('Initialize a pharmacometrics project in the current directory')
-  .argument('[drug]', 'Drug name for the project')
+  .description('Initialize a pharmacometrics project')
+  .argument('[drug]', 'Drug name')
   .action((drug?: string) => {
     printBanner();
     ensureClaudeMd(drug);
-    ensureMcpConfig();
 
-    // Create output directory
     const outDir = join(process.cwd(), 'pkpdbuilder_output');
     if (!existsSync(outDir)) {
       mkdirSync(outDir, { recursive: true });
       console.log(chalk.green('  ✓ Created pkpdbuilder_output/'));
     }
 
-    // Create MEMORY.md
     const memFile = join(process.cwd(), 'MEMORY.md');
     if (!existsSync(memFile)) {
       writeFileSync(memFile, `# Project Memory\n\n## Drug: ${drug || 'TBD'}\n\n## Key Decisions\n\n## Model History\n`);
       console.log(chalk.green('  ✓ Created MEMORY.md'));
     }
 
-    console.log(chalk.green('\n  Project initialized! Run `pkpdbuilder` to start.\n'));
+    console.log(chalk.green('\n  Project ready! Run `pkpdbuilder` to start.\n'));
   });
 
-// ── Doctor command: check environment ──────────────────
+// ── Doctor: check everything ───────────────────────────
 
 program
   .command('doctor')
-  .description('Check environment: Claude Code, R, packages')
+  .description('Check environment')
   .action(() => {
     printBanner();
     console.log(chalk.bold('  Environment Check'));
@@ -106,25 +125,39 @@ program
       } catch {
         console.log(chalk.green('  ✓ Claude Code installed'));
       }
+
+      if (isClaudeAuthenticated()) {
+        console.log(chalk.green('  ✓ Authenticated'));
+      } else {
+        console.log(chalk.yellow('  ○ Not authenticated (run pkpdbuilder to login)'));
+      }
     } else {
-      console.log(chalk.red('  ✗ Claude Code not found'));
-      console.log(chalk.dim('    npm install -g @anthropic-ai/claude-code'));
+      console.log(chalk.yellow('  ○ Claude Code not installed (run pkpdbuilder to auto-install)'));
     }
 
     // R
-    checkR();
+    checkR(true);
 
-    // MCP config
+    // MCP
     const mcpPath = getMcpConfigPath();
     if (existsSync(mcpPath)) {
-      console.log(chalk.green(`  ✓ MCP config at ${mcpPath}`));
+      try {
+        const config = JSON.parse(readFileSync(mcpPath, 'utf-8'));
+        if (config.mcpServers?.pkpdbuilder) {
+          console.log(chalk.green('  ✓ MCP tools configured'));
+        } else {
+          console.log(chalk.yellow('  ○ MCP not configured (run pkpdbuilder)'));
+        }
+      } catch {
+        console.log(chalk.yellow('  ○ MCP config unreadable'));
+      }
     } else {
-      console.log(chalk.yellow('  ○ MCP not configured (run pkpdbuilder to auto-configure)'));
+      console.log(chalk.yellow('  ○ MCP not configured (run pkpdbuilder)'));
     }
 
     // CLAUDE.md
     if (existsSync(join(process.cwd(), 'CLAUDE.md'))) {
-      console.log(chalk.green('  ✓ CLAUDE.md found in project'));
+      console.log(chalk.green('  ✓ CLAUDE.md found'));
     } else {
       console.log(chalk.yellow('  ○ No CLAUDE.md (run pkpdbuilder init)'));
     }
@@ -132,7 +165,9 @@ program
     console.log('');
   });
 
-// ── Helpers ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════
 
 function hasClaude(): boolean {
   try {
@@ -143,39 +178,127 @@ function hasClaude(): boolean {
   }
 }
 
-function checkR(): void {
+function installClaude(): void {
+  console.log(chalk.cyan('  Installing Claude Code...'));
   try {
-    const rPath = findRscript();
-    console.log(chalk.green(`  ✓ R found at ${rPath}`));
-
-    // Check packages
-    const result = execSync(
-      `"${rPath}" -e "pkgs <- c('nlmixr2','mrgsolve','PKNCA','ggplot2'); installed <- sapply(pkgs, requireNamespace, quietly=TRUE); cat(paste(pkgs, installed, sep='=', collapse=';'))"`,
-      { encoding: 'utf-8', timeout: 15000 }
-    ).trim();
-
-    const pairs = result.split(';');
-    for (const pair of pairs) {
-      const [pkg, status] = pair.split('=');
-      if (status === 'TRUE') {
-        console.log(chalk.green(`    ✓ ${pkg}`));
-      } else {
-        console.log(chalk.yellow(`    ✗ ${pkg} (install.packages("${pkg}"))`));
-      }
-    }
-  } catch (err: any) {
-    console.log(chalk.yellow('  ✗ R not found — R tools will be unavailable'));
-    console.log(chalk.dim('    Install from https://cran.r-project.org'));
+    execSync('npm install -g @anthropic-ai/claude-code', {
+      stdio: 'inherit',
+      timeout: 120000,
+    });
+    console.log(chalk.green('  ✓ Claude Code installed\n'));
+  } catch {
+    console.log(chalk.red('\n  Failed to install Claude Code.'));
+    console.log(chalk.dim('  Try manually: npm install -g @anthropic-ai/claude-code'));
+    process.exit(1);
   }
 }
 
-function getMcpConfigPath(): string {
-  // Claude Code MCP config location
+function isClaudeAuthenticated(): boolean {
+  // Check if Claude Code has stored credentials
   const home = homedir();
-  if (process.platform === 'win32') {
-    return join(home, '.claude', 'claude_desktop_config.json');
+  const credPaths = [
+    join(home, '.claude', 'config.json'),
+    join(home, '.claude', 'credentials.json'),
+    join(home, '.claude.json'),
+  ];
+
+  for (const p of credPaths) {
+    if (existsSync(p)) {
+      try {
+        const data = readFileSync(p, 'utf-8');
+        if (data.includes('api_key') || data.includes('oauth') || data.includes('token') || data.includes('sk-ant-')) {
+          return true;
+        }
+      } catch {}
+    }
   }
-  return join(home, '.claude', 'claude_desktop_config.json');
+
+  // Also check env var
+  if (process.env.ANTHROPIC_API_KEY) return true;
+
+  return false;
+}
+
+function findRscript(): string | null {
+  // Check PATH
+  try {
+    execSync('Rscript --version', { stdio: 'pipe' });
+    return 'Rscript';
+  } catch {}
+
+  // Windows
+  if (process.platform === 'win32') {
+    const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
+    const rBase = join(programFiles, 'R');
+    if (existsSync(rBase)) {
+      try {
+        const { readdirSync } = require('fs');
+        const versions = (readdirSync(rBase) as string[])
+          .filter((d: string) => d.startsWith('R-'))
+          .sort()
+          .reverse();
+        for (const v of versions) {
+          const p = join(rBase, v, 'bin', 'Rscript.exe');
+          if (existsSync(p)) return p;
+        }
+      } catch {}
+    }
+  }
+
+  // macOS
+  if (process.platform === 'darwin') {
+    for (const p of [
+      '/usr/local/bin/Rscript',
+      '/opt/homebrew/bin/Rscript',
+      '/Library/Frameworks/R.framework/Resources/bin/Rscript',
+    ]) {
+      if (existsSync(p)) return p;
+    }
+  }
+
+  // Linux
+  for (const p of ['/usr/bin/Rscript', '/usr/local/bin/Rscript']) {
+    if (existsSync(p)) return p;
+  }
+
+  return null;
+}
+
+function checkR(verbose = false): boolean {
+  const rPath = findRscript();
+  if (!rPath) {
+    if (verbose) {
+      console.log(chalk.yellow('  ✗ R not found'));
+      console.log(chalk.dim('    Install from https://cran.r-project.org'));
+    }
+    return false;
+  }
+
+  console.log(chalk.green(`  ✓ R found at ${rPath}`));
+
+  if (verbose) {
+    try {
+      const result = execSync(
+        `"${rPath}" -e "pkgs <- c('nlmixr2','mrgsolve','PKNCA','ggplot2'); installed <- sapply(pkgs, requireNamespace, quietly=TRUE); cat(paste(pkgs, installed, sep='=', collapse=';'))"`,
+        { encoding: 'utf-8', timeout: 15000 }
+      ).trim();
+
+      for (const pair of result.split(';')) {
+        const [pkg, status] = pair.split('=');
+        if (status === 'TRUE') {
+          console.log(chalk.green(`    ✓ ${pkg}`));
+        } else {
+          console.log(chalk.yellow(`    ✗ ${pkg}`));
+        }
+      }
+    } catch {}
+  }
+
+  return true;
+}
+
+function getMcpConfigPath(): string {
+  return join(homedir(), '.claude', 'claude_desktop_config.json');
 }
 
 function ensureMcpConfig(): void {
@@ -195,7 +318,6 @@ function ensureMcpConfig(): void {
 
   if (!config.mcpServers) config.mcpServers = {};
 
-  // Add/update pkpdbuilder MCP server
   const serverPath = join(PACKAGE_ROOT, 'dist', 'server.js');
   config.mcpServers['pkpdbuilder'] = {
     command: 'node',
@@ -203,78 +325,66 @@ function ensureMcpConfig(): void {
   };
 
   writeFileSync(configPath, JSON.stringify(config, null, 2));
-  console.log(chalk.green('  ✓ MCP server configured'));
 }
 
 function ensureClaudeMd(drug?: string): void {
   const claudeMd = join(process.cwd(), 'CLAUDE.md');
-  if (existsSync(claudeMd)) {
-    console.log(chalk.dim('  ○ CLAUDE.md already exists'));
-    return;
-  }
+  if (existsSync(claudeMd)) return;
 
   const content = `# PKPDBuilder — Pharmacometrics Co-Pilot
 
-You are a pharmacometrics expert assistant. You have access to specialized MCP tools for population PK/PD analysis via the \`pkpdbuilder\` MCP server.
+You are a pharmacometrics expert. You have specialized MCP tools for population PK/PD analysis.
 
-## Available Tools
+## Tools
 
 ### Data
-- \`load_dataset\` — Load CSV/NONMEM datasets, validates ID/TIME/DV columns
-- \`summarize_dataset\` — Subject counts, covariate distributions, dosing summary
-- \`plot_data\` — Spaghetti plots, individual profiles, dose-normalized
-- \`dataset_qc\` — Quality checks (missing values, duplicates, BLQ)
-- \`handle_blq\` — Handle BLQ data (M1-M7 methods)
+- \`load_dataset\` — Load CSV/NONMEM datasets (validates ID/TIME/DV)
+- \`summarize_dataset\` — Subject counts, covariates, dosing summary
+- \`plot_data\` — Spaghetti, individual, dose-normalized plots
+- \`dataset_qc\` — Quality checks
+- \`handle_blq\` — BLQ handling (M1-M7)
 
 ### Modeling
-- \`fit_model\` — Fit PopPK models via nlmixr2 (1/2/3-CMT, oral/IV, SAEM/FOCEI)
-- \`fit_from_library\` — Fit pre-built models from the 59-model library
-- \`compare_models\` — Compare fits by OFV/AIC/BIC
-- \`list_model_library\` — Browse all available models
-- \`get_model_code\` — View nlmixr2 R code for any library model
+- \`fit_model\` — Fit PopPK via nlmixr2 (1/2/3-CMT, SAEM/FOCEI)
+- \`fit_from_library\` — Fit from 59-model library
+- \`compare_models\` — OFV/AIC/BIC comparison
+- \`list_model_library\` — Browse models
+- \`get_model_code\` — View nlmixr2 code
 
 ### Diagnostics
-- \`goodness_of_fit\` — DV vs PRED/IPRED, CWRES plots
+- \`goodness_of_fit\` — DV vs PRED/IPRED, CWRES
 - \`vpc\` — Visual Predictive Check
-- \`eta_plots\` — ETA distributions, ETA vs covariates
-- \`individual_fits\` — Per-subject observed vs predicted
-- \`parameter_table\` — Formatted parameter estimates with RSE/shrinkage
+- \`eta_plots\` — ETA distributions + covariates
+- \`individual_fits\` — Per-subject fits
+- \`parameter_table\` — Estimates with RSE/shrinkage
 
 ### Analysis
-- \`run_nca\` — Non-compartmental analysis (PKNCA)
-- \`simulate_regimen\` — Dosing simulations via mrgsolve
+- \`run_nca\` — NCA via PKNCA
+- \`simulate_regimen\` — Dosing simulation (mrgsolve)
 - \`population_simulation\` — Virtual population with IIV
-- \`covariate_screening\` — Univariate covariate analysis
-- \`stepwise_covariate_model\` — Forward addition/backward elimination
-- \`forest_plot\` — Covariate effect forest plots
+- \`covariate_screening\` — Univariate screening
+- \`stepwise_covariate_model\` — SCM (forward/backward)
+- \`forest_plot\` — Covariate effects
 
 ### Literature
-- \`search_pubmed\` — Search PubMed for PK/PD publications
-- \`lookup_drug\` — Look up published PK parameters
+- \`search_pubmed\` — PubMed search
+- \`lookup_drug\` — Published PK parameters
 
-### Export & Reports
-- \`export_model\` — Export to NONMEM/Monolix/Pumas format
+### Export
+- \`export_model\` — NONMEM/Monolix/Pumas
 - \`import_model\` — Import from NONMEM/Monolix
-- \`generate_report\` — HTML PopPK analysis report
-- \`build_shiny_app\` — Interactive R Shiny simulator
+- \`generate_report\` — HTML analysis report
+- \`build_shiny_app\` — Interactive Shiny simulator
 
 ## Workflow
-Standard pharmacometric workflow:
-1. Load and QC the dataset
+1. Load + QC dataset
 2. Explore data visually
-3. Run NCA for initial parameter estimates
-4. Fit base structural model (start simple: 1-CMT → 2-CMT)
-5. Compare models, select best by BIC
-6. Covariate screening → stepwise covariate model
-7. Generate diagnostics (GOF, VPC, ETAs)
-8. Export final model + generate report
-
-## Guidelines
-- Always check data quality before fitting
-- Start with simpler models before complex ones
-- Report parameter estimates with RSE and shrinkage
-- Use VPC as the primary model evaluation tool
-- Check all NONMEM conventions (EVID, CMT, MDV) when loading data
+3. NCA for initial estimates
+4. Fit base model (simple → complex)
+5. Compare models by BIC
+6. Covariate screening → SCM
+7. Diagnostics (GOF, VPC, ETAs)
+8. Final report + export
 ${drug ? `\n## Drug: ${drug}\n` : ''}
 `;
 
@@ -283,27 +393,26 @@ ${drug ? `\n## Drug: ${drug}\n` : ''}
 }
 
 function printBanner(): void {
-  const violet = chalk.rgb(168, 85, 247);
-  const indigo = chalk.rgb(99, 102, 241);
-  const cyan = chalk.rgb(6, 182, 212);
+  const v = chalk.rgb(168, 85, 247);
+  const i = chalk.rgb(99, 102, 241);
+  const c = chalk.rgb(6, 182, 212);
 
   console.log('');
-  console.log(violet('  ██████╗ ██╗  ██╗██████╗ ██████╗ '));
-  console.log(violet('  ██╔══██╗██║ ██╔╝██╔══██╗██╔══██╗'));
-  console.log(indigo('  ██████╔╝█████╔╝ ██████╔╝██║  ██║'));
-  console.log(indigo('  ██╔═══╝ ██╔═██╗ ██╔═══╝ ██║  ██║'));
-  console.log(cyan('  ██║     ██║  ██╗██║     ██████╔╝'));
-  console.log(cyan('  ╚═╝     ╚═╝  ╚═╝╚═╝     ╚═════╝ '));
-  console.log(violet('  ██████╗ ██╗   ██╗██╗██╗     ██████╗ ███████╗██████╗ '));
-  console.log(violet('  ██╔══██╗██║   ██║██║██║     ██╔══██╗██╔════╝██╔══██╗'));
-  console.log(indigo('  ██████╔╝██║   ██║██║██║     ██║  ██║█████╗  ██████╔╝'));
-  console.log(indigo('  ██╔══██╗██║   ██║██║██║     ██║  ██║██╔══╝  ██╔══██╗'));
-  console.log(cyan('  ██████╔╝╚██████╔╝██║███████╗██████╔╝███████╗██║  ██║'));
-  console.log(cyan('  ╚═════╝  ╚═════╝ ╚═╝╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝'));
+  console.log(v('  ██████╗ ██╗  ██╗██████╗ ██████╗ '));
+  console.log(v('  ██╔══██╗██║ ██╔╝██╔══██╗██╔══██╗'));
+  console.log(i('  ██████╔╝█████╔╝ ██████╔╝██║  ██║'));
+  console.log(i('  ██╔═══╝ ██╔═██╗ ██╔═══╝ ██║  ██║'));
+  console.log(c('  ██║     ██║  ██╗██║     ██████╔╝'));
+  console.log(c('  ╚═╝     ╚═╝  ╚═╝╚═╝     ╚═════╝ '));
+  console.log(v('  ██████╗ ██╗   ██╗██╗██╗     ██████╗ ███████╗██████╗ '));
+  console.log(v('  ██╔══██╗██║   ██║██║██║     ██╔══██╗██╔════╝██╔══██╗'));
+  console.log(i('  ██████╔╝██║   ██║██║██║     ██║  ██║█████╗  ██████╔╝'));
+  console.log(i('  ██╔══██╗██║   ██║██║██║     ██║  ██║██╔══╝  ██╔══██╗'));
+  console.log(c('  ██████╔╝╚██████╔╝██║███████╗██████╔╝███████╗██║  ██║'));
+  console.log(c('  ╚═════╝  ╚═════╝ ╚═╝╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝'));
   console.log('');
   console.log(chalk.dim(`  The Pharmacometrician's Co-Pilot • v${VERSION}`));
-  console.log(chalk.dim('  Developer: Husain Z Attarwala, PhD'));
-  console.log('');
+  console.log(chalk.dim('  Developer: Husain Z Attarwala, PhD\n'));
 }
 
 program.parse();
