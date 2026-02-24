@@ -122,11 +122,25 @@ class PKPDBuilderAgent:
         self._init_client()
     
     def _init_client(self):
-        """Initialize the appropriate SDK client."""
+        """Initialize the appropriate SDK client, auto-installing if needed."""
+        pkg_map = {
+            "anthropic": ("anthropic", "anthropic"),
+            "openai": ("openai", "openai"),
+            "google": ("google.genai", "google-genai"),
+        }
+        
+        if self.provider in pkg_map:
+            mod_name, pip_name = pkg_map[self.provider]
+            try:
+                __import__(mod_name.split(".")[0])
+            except ImportError:
+                import subprocess, sys
+                print(f"  Installing {pip_name}...")
+                subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name, "-q"])
+        
         if self.provider == "anthropic":
             from anthropic import Anthropic
             if self.api_key == "__CLAUDE_MAX_OAUTH__":
-                # Use Claude Max subscription via OAuth token
                 oauth_token = self._get_claude_oauth_token()
                 if not oauth_token:
                     raise ValueError(
