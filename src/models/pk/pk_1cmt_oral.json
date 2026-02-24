@@ -1,0 +1,10 @@
+{
+  "name": "pk_1cmt_oral",
+  "category": "pk",
+  "description": "1-compartment, first-order oral absorption, linear elimination",
+  "route": "oral",
+  "elimination": "linear",
+  "compartments": 1,
+  "monolix_equivalent": "oral1_1cpt_kaVCl",
+  "code": "pk_1cmt_oral <- function() {\n  ini({\n    lka  <- log(1);    label(\"Absorption rate constant (1/h)\")\n    lcl  <- log(5);    label(\"Clearance (L/h)\")\n    lv   <- log(50);   label(\"Volume of distribution (L)\")\n    eta.ka ~ 0.3\n    eta.cl ~ 0.1\n    eta.v  ~ 0.1\n    prop.sd <- 0.2;    label(\"Proportional error\")\n  })\n  model({\n    ka <- exp(lka + eta.ka)\n    cl <- exp(lcl + eta.cl)\n    v  <- exp(lv  + eta.v)\n    Cc <- linCmt()\n    Cc ~ prop(prop.sd)\n  })\n}"
+}
