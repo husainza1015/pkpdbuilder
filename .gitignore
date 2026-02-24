@@ -41,3 +41,4 @@ pkpdbuilder_output/*.Rmd
 # Internal
 PLAN.md
 research/
+pkpdbuilder_output/
