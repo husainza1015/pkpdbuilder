@@ -14,14 +14,13 @@ dependencies = [
     "prompt-toolkit>=3.0",
     "click>=8.0",
     "pandas>=2.0",
+    "anthropic>=0.40.0",
+    "openai>=1.30.0",
+    "google-genai>=1.0.0",
 ]
 
 [project.optional-dependencies]
-anthropic = ["anthropic>=0.40.0"]
-openai = ["openai>=1.30.0"]
-google = ["google-genai>=1.0.0"]
 security = ["keyring>=25.0"]
-all = ["anthropic>=0.40.0", "openai>=1.30.0", "google-genai>=1.0.0", "keyring>=25.0"]
 
 [project.scripts]
 pkpdbuilder = "pkpdbuilder.cli:main"
