@@ -2,8 +2,8 @@
 """Full benchmark: all fixes tested end-to-end."""
 import time
 import json
-import sys
-sys.path.insert(0, "/root/.openclaw/workspace/pkpdbuilder-cli")
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from pkpdbuilder.tools import data, nlmixr2, diagnostics, nca, simulation, literature, report, shiny, covariate, presentation, backends, memory, model_library, data_qc
 
