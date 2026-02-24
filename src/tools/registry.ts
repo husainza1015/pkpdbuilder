@@ -14,6 +14,7 @@ import * as covariateTools from './covariate.js';
 import * as exportTools from './export.js';
 import * as reportTools from './report.js';
 import * as memoryTools from './memory.js';
+import { filesystemTools, executeFilesystemTool } from './filesystem.js';
 
 const TOOL_DEFINITIONS: Tool[] = [];
 const TOOL_HANDLERS: Map<string, (args: any) => Promise<any>> = new Map();
@@ -111,6 +112,11 @@ export function initializeTools(): void {
   registerTool(memoryTools.memoryWriteTool, memoryTools.memoryWrite);
   registerTool(memoryTools.memorySearchTool, memoryTools.memorySearch);
   registerTool(memoryTools.initProjectTool, memoryTools.initProject);
+
+  // Filesystem tools (MCP-compatible)
+  for (const tool of filesystemTools) {
+    registerTool(tool as Tool, (args: any) => executeFilesystemTool(tool.name, args));
+  }
 }
 
 // Initialize all tools on module load

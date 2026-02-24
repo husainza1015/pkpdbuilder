@@ -131,6 +131,7 @@ program
       'Export/Import': ['export_model', 'import_model', 'list_backends'],
       'Reports': ['generate_report', 'build_shiny_app', 'generate_beamer_slides'],
       'Memory': ['memory_read', 'memory_write', 'memory_search', 'init_project'],
+      'Filesystem': ['read_file', 'write_file', 'list_directory', 'search_files', 'move_file', 'get_file_info'],
     };
 
     Object.entries(categories).forEach(([category, tools]) => {
