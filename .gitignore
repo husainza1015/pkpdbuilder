@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# PKPDBuilder user data
+pkpdbuilder_output/
+~/.pkpdbuilder/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Benchmark outputs (large)
+benchmark/full_results.json
+benchmark/*.png
+benchmark/*.html
+benchmark/*.Rmd
+
+# Egg info
+*.egg-info/
+
+# Output artifacts
+pkpdbuilder_output/*.rds
+pkpdbuilder_output/*.png
+pkpdbuilder_output/*.html
+pkpdbuilder_output/*.Rmd

@@ -9,6 +9,7 @@ from .learner import (
     log_tool_call, log_prompt, log_session_start, learn_from_history,
     get_personalized_prompt_section, load_profile
 )
+from .audit import APICallTimer, log_api_call
 
 # Import tools to register them
 from .tools import data, nlmixr2, diagnostics, nca, simulation, literature, report, shiny, covariate, presentation, backends, memory, model_library, data_qc
@@ -110,6 +111,8 @@ class PKPDBuilderAgent:
         self.messages = []
         self.tools = get_all_tools()
         self._tool_call_count = 0
+        self._dataset_in_context = False
+        self._tools_this_turn = []
         
         # Learn from past usage at startup
         log_session_start()
@@ -123,11 +126,12 @@ class PKPDBuilderAgent:
         if self.provider == "anthropic":
             from anthropic import Anthropic
             self.client = Anthropic(api_key=self.api_key)
-        elif self.provider in ("openai", "deepseek", "xai"):
+        elif self.provider in ("openai", "deepseek", "xai", "ollama"):
             from openai import OpenAI
             provider_info = PROVIDERS.get(self.provider, {})
             base_url = provider_info.get("base_url")
-            self.client = OpenAI(api_key=self.api_key, **({"base_url": base_url} if base_url else {}))
+            api_key = self.api_key if self.provider != "ollama" else "ollama"
+            self.client = OpenAI(api_key=api_key, **({"base_url": base_url} if base_url else {}))
         elif self.provider == "google":
             import google.generativeai as genai
             genai.configure(api_key=self.api_key)
@@ -142,7 +146,7 @@ class PKPDBuilderAgent:
         
         if self.provider == "anthropic":
             return self._chat_anthropic()
-        elif self.provider in ("openai", "deepseek", "xai"):
+        elif self.provider in ("openai", "deepseek", "xai", "ollama"):
             return self._chat_openai()
         elif self.provider == "google":
             return self._chat_google()
@@ -181,27 +185,58 @@ class PKPDBuilderAgent:
         return prompt
 
     def _call_anthropic(self):
-        return self.client.messages.create(
-            model=self.model,
-            max_tokens=self.config.get("max_tokens", 8192),
-            system=self._get_system_prompt(),
-            tools=self.tools,
-            messages=self.messages,
-        )
+        timer = APICallTimer(self.provider, self.model, self._dataset_in_context)
+        timer.__enter__()
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=self.config.get("max_tokens", 8192),
+                system=self._get_system_prompt(),
+                tools=self.tools,
+                messages=self.messages,
+            )
+            usage = getattr(response, "usage", None)
+            timer.log(
+                prompt_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
+                completion_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
+                tools_called=self._tools_this_turn,
+            )
+            self._tools_this_turn = []
+            return response
+        except Exception as e:
+            timer.log(error=str(e))
+            raise
     
     # ── OpenAI (GPT / o-series) ─────────────────────────────
     
+    def _call_openai(self, openai_messages, openai_tools):
+        """Single OpenAI API call with audit logging."""
+        timer = APICallTimer(self.provider, self.model, self._dataset_in_context)
+        timer.__enter__()
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=openai_messages,
+                tools=openai_tools if openai_tools else None,
+                max_tokens=self.config.get("max_tokens", 8192),
+            )
+            usage = getattr(response, "usage", None)
+            timer.log(
+                prompt_tokens=getattr(usage, "prompt_tokens", 0) if usage else 0,
+                completion_tokens=getattr(usage, "completion_tokens", 0) if usage else 0,
+                tools_called=self._tools_this_turn,
+            )
+            self._tools_this_turn = []
+            return response
+        except Exception as e:
+            timer.log(error=str(e))
+            raise
+
     def _chat_openai(self) -> str:
         openai_tools = self._tools_to_openai_format()
         openai_messages = self._messages_to_openai_format()
         
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=openai_messages,
-            tools=openai_tools if openai_tools else None,
-            max_tokens=self.config.get("max_tokens", 8192),
-        )
-        
+        response = self._call_openai(openai_messages, openai_tools)
         msg = response.choices[0].message
         
         # Tool call loop
@@ -220,12 +255,7 @@ class PKPDBuilderAgent:
             self.messages.append({"role": "tool_results", "content": tool_results})
             
             openai_messages = self._messages_to_openai_format()
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=openai_messages,
-                tools=openai_tools if openai_tools else None,
-                max_tokens=self.config.get("max_tokens", 8192),
-            )
+            response = self._call_openai(openai_messages, openai_tools)
             msg = response.choices[0].message
         
         text = msg.content or ""
@@ -413,6 +443,11 @@ class PKPDBuilderAgent:
         result = execute_tool(name, args)
         result_preview = result[:200] + "..." if len(result) > 200 else result
         console.print(f"  [dim green]✓ {result_preview}[/dim green]")
+
+        # Track dataset presence for audit
+        if name == "load_dataset":
+            self._dataset_in_context = True
+        self._tools_this_turn.append(name)
 
         # Log for adaptive learning
         log_tool_call(name, args, result_preview)

@@ -93,7 +93,28 @@ PROVIDERS = {
         "docs": "https://console.x.ai",
         "base_url": "https://api.x.ai/v1",
     },
+    "ollama": {
+        "name": "Ollama (Local)",
+        "models": [
+            "llama3.3",
+            "qwen2.5-coder",
+            "deepseek-r1:14b",
+            "deepseek-r1:32b",
+            "mistral",
+            "codestral",
+            "phi4",
+            "gemma3",
+        ],
+        "default": "llama3.3",
+        "env_key": "",
+        "auth_methods": ["none"],
+        "docs": "https://ollama.ai",
+        "base_url": "http://localhost:11434/v1",
+        "local": True,
+    },
 }
+
+KEYRING_SERVICE = "pkpdbuilder"
 
 DEFAULT_CONFIG = {
     "provider": "anthropic",
@@ -111,41 +132,114 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 KEYS_FILE = CONFIG_DIR / "keys.json"  # Separate for security
 
 
+def _keyring_available() -> bool:
+    """Check if keyring is installed and functional."""
+    try:
+        import keyring
+        # Test that a backend is actually available (not the null backend)
+        backend = keyring.get_keyring()
+        return "fail" not in type(backend).__name__.lower() and "null" not in type(backend).__name__.lower()
+    except Exception:
+        return False
+
+
 def get_api_key(provider: str = None) -> str:
-    """Get API key for provider from env, keys file, or config."""
+    """Get API key for provider. Lookup order:
+    1. Environment variable
+    2. OS keyring (encrypted)
+    3. keys.json file (fallback)
+    4. Legacy config.json
+    """
     config = load_config()
     provider = provider or config.get("provider", "anthropic")
     provider_info = PROVIDERS.get(provider, {})
-    
+
+    # Ollama needs no key
+    if provider_info.get("local"):
+        return "ollama"
+
     # 1. Environment variable
     env_key = provider_info.get("env_key", "")
     if env_key and os.environ.get(env_key):
         return os.environ[env_key]
-    
-    # 2. Keys file (preferred storage)
+
+    # 2. OS keyring (encrypted)
+    if _keyring_available():
+        try:
+            import keyring
+            val = keyring.get_password(KEYRING_SERVICE, provider)
+            if val:
+                return val
+        except Exception:
+            pass
+
+    # 3. Keys file (plaintext fallback)
     if KEYS_FILE.exists():
         keys = json.loads(KEYS_FILE.read_text())
         if provider in keys:
             return keys[provider]
-    
-    # 3. Legacy: config file
+
+    # 4. Legacy: config file
     if CONFIG_FILE.exists():
         cfg = json.loads(CONFIG_FILE.read_text())
         if "api_key" in cfg:
             return cfg["api_key"]
-    
+
     return ""
 
 
 def save_api_key(provider: str, key: str):
-    """Save API key to keys file (600 permissions)."""
+    """Save API key. Prefers OS keyring (encrypted), falls back to keys.json."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Try keyring first
+    if _keyring_available():
+        try:
+            import keyring
+            keyring.set_password(KEYRING_SERVICE, provider, key)
+            # Remove from plaintext file if it was there
+            if KEYS_FILE.exists():
+                keys = json.loads(KEYS_FILE.read_text())
+                if provider in keys:
+                    del keys[provider]
+                    if keys:
+                        KEYS_FILE.write_text(json.dumps(keys, indent=2))
+                        KEYS_FILE.chmod(0o600)
+                    else:
+                        KEYS_FILE.unlink()
+            return
+        except Exception:
+            pass
+
+    # Fallback: keys.json with restricted permissions
     keys = {}
     if KEYS_FILE.exists():
         keys = json.loads(KEYS_FILE.read_text())
     keys[provider] = key
     KEYS_FILE.write_text(json.dumps(keys, indent=2))
     KEYS_FILE.chmod(0o600)
+
+
+def migrate_keys_to_keyring() -> dict:
+    """Migrate plaintext keys.json to OS keyring. Returns migration result."""
+    if not _keyring_available():
+        return {"migrated": 0, "error": "keyring not available"}
+    if not KEYS_FILE.exists():
+        return {"migrated": 0, "message": "no keys.json to migrate"}
+
+    import keyring
+    keys = json.loads(KEYS_FILE.read_text())
+    migrated = 0
+    for provider, key in keys.items():
+        try:
+            keyring.set_password(KEYRING_SERVICE, provider, key)
+            migrated += 1
+        except Exception as e:
+            return {"migrated": migrated, "error": f"failed on {provider}: {e}"}
+
+    # Delete plaintext file after successful migration
+    KEYS_FILE.unlink()
+    return {"migrated": migrated, "message": f"Migrated {migrated} keys to OS keyring. Deleted keys.json."}
 
 
 def load_config() -> dict:

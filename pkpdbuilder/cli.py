@@ -78,6 +78,8 @@ def _render_banner():
     tagline.append("5 providers", style="rgb(6,182,212)")
     tagline.append("  •  ", style="dim")
     tagline.append(f"v{VERSION}\n", style="dim bold")
+    tagline.append("  Developer: ", style="dim")
+    tagline.append("Husain Z Attarwala, PhD\n", style="rgb(168,85,247) bold")
 
     return parts, tagline
 
@@ -95,6 +97,8 @@ HELP_TEXT = """
 | `/provider` | Show/switch AI provider (anthropic, openai, google) |
 | `/model` | Show/switch model |
 | `/profile` | View learned preferences and usage stats |
+| `/audit` | View LLM API call log, tokens, and costs |
+| `/local [model]` | Switch to Ollama (local LLM, no data leaves machine) |
 | `/forget` | Reset learned preferences (start fresh) |
 | `/quit` | Exit pkpdbuilder |
 
@@ -521,6 +525,42 @@ def interactive_mode():
                     USAGE_LOG.unlink()
                 agent._personalized_prompt = ""
                 console.print("[green]Profile reset. Starting fresh.[/green]")
+                continue
+            elif cmd == "/audit":
+                from .audit import get_recent_calls, audit_summary
+                summary = audit_summary()
+                console.print(f"\n[bold]API Audit Log[/bold]\n")
+                console.print(f"  Total calls:  [cyan]{summary['total_calls']}[/cyan]")
+                console.print(f"  Total tokens: [cyan]{summary['total_tokens']:,}[/cyan] ({summary['prompt_tokens']:,} in / {summary['completion_tokens']:,} out)")
+                console.print(f"  Est. cost:    [cyan]${summary['estimated_cost_usd']:.4f}[/cyan]")
+                ds_calls = summary.get('calls_with_dataset', 0)
+                if ds_calls:
+                    console.print(f"  ⚠ Calls with dataset in context: [yellow]{ds_calls}[/yellow]")
+                for prov, stats in summary.get("by_provider", {}).items():
+                    console.print(f"  [{prov}] {stats['calls']} calls, {stats['tokens']:,} tokens, ${stats['cost']:.4f}")
+                recent = get_recent_calls(10)
+                if recent:
+                    console.print(f"\n  [bold]Last {len(recent)} calls:[/bold]")
+                    for c in recent:
+                        ts = c["ts"][11:19]
+                        tokens = c.get("total_tokens", 0)
+                        cost = c.get("estimated_cost_usd", 0)
+                        model = c.get("model", "?")[:20]
+                        tools = ", ".join(c.get("tools_called", [])[:3])
+                        ds = " [yellow]⚠DS[/yellow]" if c.get("dataset_in_context") else ""
+                        console.print(f"    {ts}  {model:<20} {tokens:>6} tok  ${cost:.4f}{ds}  {tools}")
+                console.print()
+                continue
+            elif cmd == "/local":
+                parts = user_input.split()
+                model_name = parts[1] if len(parts) >= 2 else None
+                try:
+                    agent = PKPDBuilderAgent(provider="ollama", model=model_name)
+                    console.print(f"[green]Switched to Ollama (local) / {agent.model}[/green]")
+                    console.print("[dim]Data stays on your machine. No API calls.[/dim]")
+                except Exception as e:
+                    console.print(f"[red]{e}[/red]")
+                    console.print("[dim]Is Ollama running? Start with: ollama serve[/dim]")
                 continue
             else:
                 console.print(f"[yellow]Unknown command: {cmd}. Type /help[/yellow]")

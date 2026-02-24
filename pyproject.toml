@@ -20,7 +20,8 @@ dependencies = [
 anthropic = ["anthropic>=0.40.0"]
 openai = ["openai>=1.30.0"]
 google = ["google-generativeai>=0.8.0"]
-all = ["anthropic>=0.40.0", "openai>=1.30.0", "google-generativeai>=0.8.0"]
+security = ["keyring>=25.0"]
+all = ["anthropic>=0.40.0", "openai>=1.30.0", "google-generativeai>=0.8.0", "keyring>=25.0"]
 
 [project.scripts]
 pkpdbuilder = "pkpdbuilder.cli:main"
