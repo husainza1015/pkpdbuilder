@@ -32,8 +32,12 @@ export async function loadDataset(args) {
         return { success: false, error: `File not found: ${args.file_path}` };
     }
     const rCode = `
-    file_path <- commandArgs(trailingOnly=TRUE)[1]
+    input_file <- commandArgs(trailingOnly=TRUE)[1]
     output_file <- commandArgs(trailingOnly=TRUE)[2]
+    
+    # Read args from input JSON
+    args <- jsonlite::fromJSON(input_file)
+    file_path <- args$file_path
     
     # Read dataset
     df <- tryCatch({

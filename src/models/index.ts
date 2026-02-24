@@ -10,6 +10,10 @@ import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+// In dist/, __dirname = <pkg>/dist/models/ but JSON files are in <pkg>/src/models/
+// Resolve to package root and look in src/models/
+const PACKAGE_ROOT = join(__dirname, '..', '..');
+const MODELS_DIR = existsSync(join(__dirname, 'pk')) ? __dirname : join(PACKAGE_ROOT, 'src', 'models');
 
 export interface ModelDefinition {
   name: string;
@@ -32,7 +36,7 @@ export function loadAllModels(): ModelDefinition[] {
   const categories = ['pk', 'pd', 'pkpd', 'tmdd', 'advanced'];
 
   for (const category of categories) {
-    const categoryPath = join(__dirname, category);
+    const categoryPath = join(MODELS_DIR, category);
     if (!existsSync(categoryPath)) continue;
 
     const files = readdirSync(categoryPath).filter(f => extname(f) === '.json');

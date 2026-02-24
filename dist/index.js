@@ -6,7 +6,7 @@
 import { Command } from 'commander';
 import { printBanner } from './banner.js';
 import { discoverR, scanForDatasets, checkProjectFiles } from './discovery.js';
-import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
+import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync, execSync } from 'child_process';
@@ -29,11 +29,11 @@ function findClaude() {
     try {
         const result = spawnSync(cmd, ['claude'], { encoding: 'utf-8', stdio: 'pipe' });
         if (result.status === 0 && result.stdout.trim()) {
-            return result.stdout.trim().split('\n')[0];
+            return result.stdout.trim().split('\n')[0].trim();
         }
     }
     catch (e) {
-        // Not found
+        // Not found via PATH
     }
     // Check common npm global paths on Windows
     if (isWindows) {
@@ -44,49 +44,83 @@ function findClaude() {
     return null;
 }
 /**
- * Write CLAUDE.md with pharmacometrics system prompt into cwd
+ * Get the path to our MCP server entry point
+ */
+function getMcpServerPath() {
+    return join(PACKAGE_ROOT, 'dist', 'mcp-server.js');
+}
+/**
+ * Ensure .mcp.json exists in the project directory with our server
+ * This is the most reliable way to configure MCP for Claude Code
+ */
+function ensureMcpJson() {
+    const mcpJsonPath = join(process.cwd(), '.mcp.json');
+    const serverPath = getMcpServerPath();
+    const ourConfig = {
+        command: 'node',
+        args: [serverPath],
+    };
+    let config = { mcpServers: {} };
+    // Read existing .mcp.json if present
+    if (existsSync(mcpJsonPath)) {
+        try {
+            config = JSON.parse(readFileSync(mcpJsonPath, 'utf-8'));
+            if (!config.mcpServers)
+                config.mcpServers = {};
+        }
+        catch (e) {
+            // Corrupted — overwrite
+            config = { mcpServers: {} };
+        }
+    }
+    // Add/update our server entry
+    config.mcpServers.pkpdbuilder = ourConfig;
+    writeFileSync(mcpJsonPath, JSON.stringify(config, null, 2) + '\n');
+}
+/**
+ * Write CLAUDE.md with pharmacometrics instructions if not present
  */
 function ensureClaudeMd() {
     const claudeMdPath = join(process.cwd(), 'CLAUDE.md');
-    // Check if our bundled CLAUDE.md exists
+    // Don't overwrite user's existing CLAUDE.md
+    if (existsSync(claudeMdPath))
+        return;
+    // Use bundled CLAUDE.md if available
     const bundledPath = join(PACKAGE_ROOT, 'CLAUDE.md');
     if (existsSync(bundledPath)) {
-        // Only write if not already present or if ours is newer
-        if (!existsSync(claudeMdPath)) {
-            writeFileSync(claudeMdPath, readFileSync(bundledPath, 'utf-8'));
-        }
+        writeFileSync(claudeMdPath, readFileSync(bundledPath, 'utf-8'));
         return;
     }
     // Inline fallback
-    if (!existsSync(claudeMdPath)) {
-        writeFileSync(claudeMdPath, CLAUDE_MD_CONTENT);
-    }
+    writeFileSync(claudeMdPath, CLAUDE_MD_CONTENT);
 }
 /**
- * Generate MCP config pointing to our server
+ * Ensure Claude Code has our MCP server whitelisted
+ * Writes to ~/.claude/settings.json if needed
  */
-function getMcpConfig() {
-    const serverPath = join(PACKAGE_ROOT, 'dist', 'mcp-server.js');
-    return {
-        mcpServers: {
-            pkpdbuilder: {
-                command: 'node',
-                args: [serverPath],
-            },
-        },
-    };
-}
-/**
- * Write MCP config to temp file and return path
- */
-function writeMcpConfig() {
-    const configDir = join(homedir(), '.pkpdbuilder');
-    if (!existsSync(configDir)) {
-        mkdirSync(configDir, { recursive: true });
+function ensureMcpApproved() {
+    const settingsDir = join(homedir(), '.claude');
+    const settingsPath = join(settingsDir, 'settings.json');
+    if (!existsSync(settingsDir)) {
+        mkdirSync(settingsDir, { recursive: true });
     }
-    const configPath = join(configDir, 'mcp-config.json');
-    writeFileSync(configPath, JSON.stringify(getMcpConfig(), null, 2));
-    return configPath;
+    let settings = {};
+    if (existsSync(settingsPath)) {
+        try {
+            settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+        }
+        catch (e) {
+            settings = {};
+        }
+    }
+    // Enable our MCP server from .mcp.json
+    if (!settings.enabledMcpjsonServers) {
+        settings.enabledMcpjsonServers = [];
+    }
+    if (!settings.enabledMcpjsonServers.includes('pkpdbuilder')) {
+        settings.enabledMcpjsonServers.push('pkpdbuilder');
+        writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+    }
 }
 // ── Default: launch Claude Code with PMx tools ──────────────
 program.action(async () => {
@@ -102,6 +136,14 @@ program.action(async () => {
         process.exit(1);
     }
     console.log(chalk.green('  ✓ Claude Code found'));
+    // Check MCP server is built
+    const serverPath = getMcpServerPath();
+    if (!existsSync(serverPath)) {
+        console.log(chalk.red('  ✗ MCP server not found'));
+        console.log(chalk.dim('    Run: cd <pkpdbuilder-dir> && npm run build'));
+        process.exit(1);
+    }
+    console.log(chalk.green('  ✓ MCP server ready'));
     // Check R
     const r = discoverR();
     if (r.found) {
@@ -112,14 +154,21 @@ program.action(async () => {
         if (pkgs.length > 0) {
             console.log(chalk.dim(`    Packages: ${pkgs.join(', ')}`));
         }
+        const missing = Object.entries(r.packages)
+            .filter(([, v]) => !v)
+            .map(([k]) => k);
+        if (missing.length > 0) {
+            console.log(chalk.yellow(`    Missing: ${missing.join(', ')}`));
+        }
     }
     else {
-        console.log(chalk.yellow('  ⚠ R not found (modeling tools won\'t work)'));
+        console.log(chalk.yellow("  ⚠ R not found (modeling tools won't work)"));
+        console.log(chalk.dim('    Install from https://cran.r-project.org/'));
     }
     // Check datasets
     const datasets = scanForDatasets();
     if (datasets.length > 0) {
-        console.log(chalk.green(`  ✓ ${datasets.length} dataset(s) found`));
+        console.log(chalk.green(`  ✓ ${datasets.length} dataset(s) in current directory`));
     }
     // Check project memory
     const projFiles = checkProjectFiles();
@@ -127,13 +176,14 @@ program.action(async () => {
         console.log(chalk.green('  ✓ Project memory found'));
     }
     console.log('');
-    // Ensure CLAUDE.md exists in cwd
+    // Setup MCP: write .mcp.json and approve in settings
+    ensureMcpJson();
+    ensureMcpApproved();
+    // Ensure CLAUDE.md exists
     ensureClaudeMd();
-    // Write MCP config
-    const mcpConfigPath = writeMcpConfig();
-    // Launch Claude Code with our MCP server
-    console.log(chalk.dim('  Launching Claude Code with pharmacometrics tools...\n'));
-    const result = spawnSync(claudePath, ['--mcp-config', mcpConfigPath], {
+    console.log(chalk.dim('  Starting Claude Code with pharmacometrics tools...\n'));
+    // Launch Claude Code
+    const result = spawnSync(claudePath, [], {
         stdio: 'inherit',
         cwd: process.cwd(),
         env: { ...process.env },
@@ -155,12 +205,20 @@ program
             console.log(chalk.dim(`    Version: ${ver}`));
         }
         catch (e) {
-            // Version check failed, that's ok
+            // Version check failed
         }
     }
     else {
         console.log(chalk.red('  ✗ Claude Code not found'));
         console.log(chalk.dim('    npm install -g @anthropic-ai/claude-code'));
+    }
+    // MCP server
+    const serverPath = getMcpServerPath();
+    if (existsSync(serverPath)) {
+        console.log(chalk.green('  ✓ MCP server built'));
+    }
+    else {
+        console.log(chalk.red('  ✗ MCP server not found'));
     }
     // R
     const r = discoverR();
@@ -191,13 +249,24 @@ program
             console.log(chalk.dim(`    ... and ${datasets.length - 10} more`));
         }
     }
-    // MCP server
-    const serverPath = join(PACKAGE_ROOT, 'dist', 'mcp-server.js');
-    if (existsSync(serverPath)) {
-        console.log(chalk.green('\n  ✓ MCP server built'));
+    // .mcp.json
+    const mcpJsonPath = join(process.cwd(), '.mcp.json');
+    if (existsSync(mcpJsonPath)) {
+        try {
+            const cfg = JSON.parse(readFileSync(mcpJsonPath, 'utf-8'));
+            if (cfg.mcpServers?.pkpdbuilder) {
+                console.log(chalk.green('\n  ✓ .mcp.json configured'));
+            }
+            else {
+                console.log(chalk.yellow('\n  ⚠ .mcp.json exists but pkpdbuilder not configured'));
+            }
+        }
+        catch (e) {
+            console.log(chalk.red('\n  ✗ .mcp.json is invalid'));
+        }
     }
     else {
-        console.log(chalk.red('\n  ✗ MCP server not found (run npm run build)'));
+        console.log(chalk.dim('\n  - No .mcp.json (will be created on first run)'));
     }
     console.log('');
 });
@@ -217,7 +286,7 @@ program
         Covariate: ['covariate_screening', 'stepwise_covariate_model', 'forest_plot'],
         'Export/Import': ['export_model', 'import_model', 'list_backends'],
         Reports: ['generate_report', 'build_shiny_app', 'generate_beamer_slides'],
-        Memory: ['memory_read', 'memory_write', 'memory_search', 'init_project'],
+        Memory: ['pkpd_memory_read', 'pkpd_memory_write', 'pkpd_memory_search', 'init_pkpd_project'],
     };
     let total = 0;
     Object.entries(categories).forEach(([category, tools]) => {
@@ -235,8 +304,62 @@ program
     .command('mcp-config')
     .description('Print MCP server configuration (for manual Claude Code setup)')
     .action(() => {
-    const config = getMcpConfig();
+    const config = {
+        mcpServers: {
+            pkpdbuilder: {
+                command: 'node',
+                args: [getMcpServerPath()],
+            },
+        },
+    };
     console.log(JSON.stringify(config, null, 2));
+});
+// ── Setup: register MCP server with Claude Code ─────────────
+program
+    .command('setup')
+    .description('Register PKPDBuilder MCP server with Claude Code')
+    .action(async () => {
+    printBanner('Setup');
+    const claudePath = findClaude();
+    if (!claudePath) {
+        console.log(chalk.red('  ✗ Claude Code not installed'));
+        console.log(chalk.dim('    npm install -g @anthropic-ai/claude-code'));
+        process.exit(1);
+    }
+    const serverPath = getMcpServerPath();
+    if (!existsSync(serverPath)) {
+        console.log(chalk.red('  ✗ MCP server not built'));
+        process.exit(1);
+    }
+    // Method 1: Register via claude mcp add (user scope)
+    console.log(chalk.dim('  Registering MCP server with Claude Code...'));
+    try {
+        const result = spawnSync(claudePath, [
+            'mcp', 'add', 'pkpdbuilder',
+            '--transport', 'stdio',
+            '--scope', 'user',
+            '--',
+            'node', serverPath,
+        ], {
+            encoding: 'utf-8',
+            stdio: 'pipe',
+        });
+        if (result.status === 0) {
+            console.log(chalk.green('  ✓ MCP server registered (user scope)'));
+        }
+        else {
+            console.log(chalk.yellow('  ⚠ claude mcp add failed, using .mcp.json fallback'));
+        }
+    }
+    catch (e) {
+        console.log(chalk.yellow('  ⚠ claude mcp add failed, using .mcp.json fallback'));
+    }
+    // Method 2: Also ensure .mcp.json and settings approval
+    ensureMcpJson();
+    ensureMcpApproved();
+    console.log(chalk.green('  ✓ .mcp.json configured'));
+    console.log(chalk.green('  ✓ MCP server approved in settings'));
+    console.log(chalk.green('\n  Setup complete! Run `pkpdbuilder` to start.\n'));
 });
 program.parse();
 // ── Inline CLAUDE.md content ────────────────────────────────
@@ -255,7 +378,7 @@ You are a pharmacometrics co-pilot. You have access to specialized PKPDBuilder M
 - **Covariate:** covariate_screening, stepwise_covariate_model, forest_plot
 - **Export:** export_model, import_model, list_backends
 - **Reports:** generate_report, build_shiny_app, generate_beamer_slides
-- **Memory:** memory_read, memory_write, memory_search, init_project
+- **Memory:** pkpd_memory_read, pkpd_memory_write, pkpd_memory_search, init_pkpd_project
 
 ## Operating Mode: Autonomous
 
@@ -274,7 +397,7 @@ When asked to "analyze" or "run PopPK analysis":
 5. goodness_of_fit → vpc → eta_plots
 6. covariate_screening → stepwise_covariate_model (if significant)
 7. parameter_table → generate_report
-8. memory_write (log decisions and model history)
+8. pkpd_memory_write (log decisions and model history)
 
 ## Key Conventions
 
@@ -282,7 +405,7 @@ When asked to "analyze" or "run PopPK analysis":
 - Present parameter tables in readable format
 - Always state model recommendation with reasoning
 - Flag concerns: high RSE (>50%), large shrinkage (>30%), convergence issues
-- At session start, call memory_read to restore project context
-- After key decisions, call memory_write to log them
+- At session start, call pkpd_memory_read to restore project context
+- After key decisions, call pkpd_memory_write to log them
 `;
 //# sourceMappingURL=index.js.map
