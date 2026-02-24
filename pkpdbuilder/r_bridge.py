@@ -3,9 +3,49 @@ import subprocess
 import json
 import tempfile
 import os
+import sys
 from pathlib import Path
 
 R_SCRIPTS_DIR = Path(__file__).parent / "r_scripts"
+
+
+def _find_rscript() -> str:
+    """Find Rscript executable, checking common install locations on all platforms."""
+    import shutil
+    
+    # Check PATH first
+    rscript = shutil.which("Rscript")
+    if rscript:
+        return rscript
+    
+    # Windows common locations
+    if sys.platform == "win32":
+        r_base = Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "R"
+        if r_base.exists():
+            # Find latest R version
+            versions = sorted(r_base.glob("R-*/bin/Rscript.exe"), reverse=True)
+            if versions:
+                return str(versions[0])
+        # Also check x86
+        r_base_x86 = Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "R"
+        if r_base_x86.exists():
+            versions = sorted(r_base_x86.glob("R-*/bin/Rscript.exe"), reverse=True)
+            if versions:
+                return str(versions[0])
+    
+    # macOS common locations
+    elif sys.platform == "darwin":
+        for path in ["/usr/local/bin/Rscript", "/opt/homebrew/bin/Rscript", "/Library/Frameworks/R.framework/Resources/bin/Rscript"]:
+            if os.path.isfile(path):
+                return path
+    
+    # Linux — usually in PATH, but check common spots
+    else:
+        for path in ["/usr/bin/Rscript", "/usr/local/bin/Rscript"]:
+            if os.path.isfile(path):
+                return path
+    
+    return "Rscript"  # fallback — will fail gracefully in subprocess
 
 
 def run_r_script(script_name: str, args: dict, config: dict, timeout: int = 600) -> dict:
@@ -32,8 +72,9 @@ def run_r_script(script_name: str, args: dict, config: dict, timeout: int = 600)
         env["PMX_RESULT_FILE"] = result_file
         env["PMX_OUTPUT_DIR"] = config.get("output_dir", "./pmx_output")
         
+        r_path = config.get("r_path") or _find_rscript()
         proc = subprocess.run(
-            [config.get("r_path", "Rscript"), str(script_path)],
+            [r_path, str(script_path)],
             capture_output=True, text=True, timeout=timeout, env=env
         )
         
@@ -73,9 +114,11 @@ def run_r_code(code: str, config: dict, timeout: int = 300) -> dict:
         f.write(code)
         script_file = f.name
     
+    r_path = config.get("r_path") or _find_rscript()
+    
     try:
         proc = subprocess.run(
-            [config.get("r_path", "Rscript"), script_file],
+            [r_path, script_file],
             capture_output=True, text=True, timeout=timeout
         )
         return {
@@ -85,6 +128,10 @@ def run_r_code(code: str, config: dict, timeout: int = 300) -> dict:
         }
     except subprocess.TimeoutExpired:
         return {"success": False, "error": f"R code timed out after {timeout}s"}
+    except FileNotFoundError:
+        return {"success": False, "error": "Rscript not found. Install R from https://cran.r-project.org"}
+    except OSError as e:
+        return {"success": False, "error": f"Could not run Rscript: {e}"}
     finally:
         try:
             os.unlink(script_file)
