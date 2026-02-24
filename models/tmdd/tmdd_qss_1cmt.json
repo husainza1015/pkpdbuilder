@@ -1,0 +1,7 @@
+{
+  "name": "tmdd_qss_1cmt",
+  "category": "tmdd",
+  "description": "TMDD QSS approximation \u2014 1-compartment, quasi-steady-state",
+  "monolix_equivalent": "TMDD_QSS",
+  "code": "tmdd_qss_1cmt <- function() {\n  ini({\n    lv    <- log(50);   label(\"Volume of distribution (L)\")\n    lkel  <- log(0.1);  label(\"Ligand elimination rate (1/h)\")\n    lksyn <- log(1);    label(\"Receptor synthesis rate (nM/h)\")\n    lkdeg <- log(0.1);  label(\"Receptor degradation rate (1/h)\")\n    lkint <- log(0.05); label(\"Complex internalization rate (1/h)\")\n    lKSS  <- log(10);   label(\"Quasi-steady-state constant (nM)\")\n    eta.v    ~ 0.1\n    eta.ksyn ~ 0.1\n    prop.sd <- 0.2\n  })\n  model({\n    v    <- exp(lv   + eta.v)\n    kel  <- exp(lkel)\n    ksyn <- exp(lksyn + eta.ksyn)\n    kdeg <- exp(lkdeg)\n    kint <- exp(lkint)\n    KSS  <- exp(lKSS)\n    d/dt(Ltot) = -kel * Lfree - kint * (Ltot - Lfree)\n    d/dt(Rtot) =  ksyn - kdeg * Rfree - kint * (Rtot - Rfree)\n    Lfree = 0.5 * ((Ltot - Rtot - KSS) + sqrt((Ltot - Rtot - KSS)^2 + 4*KSS*Ltot))\n    Rfree = Rtot * KSS / (KSS + Lfree)\n    Cc = Lfree\n    Cc ~ prop(prop.sd)\n  })\n}"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "tte_weibull",
+  "category": "advanced",
+  "description": "Time-to-event model with Weibull hazard \u2014 h(t) = (beta/alpha)*(t/alpha)^(beta-1)",
+  "monolix_equivalent": "weibull_hazard",
+  "code": "# NOTE: TTE models in nlmixr2 require special handling via rxode2\n# This provides the hazard/survival functions for manual implementation\ntte_weibull <- function() {\n  ini({\n    lalpha <- log(100);  label(\"Scale parameter (h)\")\n    lbeta  <- log(1.5);  label(\"Shape parameter\")\n    lHR    <- log(0.5);  label(\"Hazard ratio for drug effect\")\n    eta.alpha ~ 0.1\n  })\n  model({\n    alpha <- exp(lalpha + eta.alpha)\n    beta  <- exp(lbeta)\n    HR    <- exp(lHR)\n    # Hazard function\n    h = (beta/alpha) * (TIME/alpha)^(beta-1) * HR^DRUG\n    # Cumulative hazard\n    H = (TIME/alpha)^beta * HR^DRUG\n    # Survival\n    S = exp(-H)\n  })\n}"
+}

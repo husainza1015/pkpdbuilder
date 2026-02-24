@@ -1,0 +1,7 @@
+{
+  "name": "pd_effect_cmt_imax_partial",
+  "category": "pd",
+  "description": "Effect compartment partial Imax model \u2014 bounded inhibition via Ce",
+  "monolix_equivalent": "effectCpt_Imax_partial",
+  "code": "pd_effect_cmt_imax_partial <- function() {\n  ini({\n    lke0  <- log(0.5);    label(\"Effect compartment equilibration rate (1/h)\")\n    lE0   <- log(100);    label(\"Baseline effect\")\n    lImax <- logit(0.8);  label(\"Maximum fractional inhibition\")\n    lIC50 <- log(10);     label(\"IC50 (mg/L)\")\n    eta.E0 ~ 0.1\n    add.sd <- 5\n  })\n  model({\n    ke0  <- exp(lke0)\n    E0   <- exp(lE0 + eta.E0)\n    Imax <- expit(lImax)\n    IC50 <- exp(lIC50)\n    d/dt(Ce) = ke0 * (Cc - Ce)\n    E = E0 * (1 - Imax * Ce / (IC50 + Ce))\n    E ~ add(add.sd)\n  })\n}"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "pd_direct_imax_sigmoid",
+  "category": "pd",
+  "description": "Direct sigmoidal Imax model \u2014 with Hill coefficient",
+  "monolix_equivalent": "direct_Imax_sigmoid",
+  "code": "pd_direct_imax_sigmoid <- function() {\n  ini({\n    lE0    <- log(100);    label(\"Baseline effect\")\n    lImax  <- logit(0.9);  label(\"Maximum fractional inhibition\")\n    lIC50  <- log(5);      label(\"Concentration for 50% inhibition (mg/L)\")\n    lgamma <- log(1.5);    label(\"Hill coefficient\")\n    eta.E0 ~ 0.1\n    add.sd <- 5\n  })\n  model({\n    E0    <- exp(lE0 + eta.E0)\n    Imax  <- expit(lImax)\n    IC50  <- exp(lIC50)\n    gamma <- exp(lgamma)\n    E = E0 * (1 - Imax * Cc^gamma / (IC50^gamma + Cc^gamma))\n    E ~ add(add.sd)\n  })\n}"
+}

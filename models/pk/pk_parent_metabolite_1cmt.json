@@ -1,0 +1,7 @@
+{
+  "name": "pk_parent_metabolite_1cmt",
+  "category": "pk",
+  "description": "Parent + metabolite model \u2014 both 1-CMT, sequential metabolism",
+  "monolix_equivalent": "parent_metabolite_1cpt",
+  "code": "pk_parent_metabolite_1cmt <- function() {\n  ini({\n    lka   <- log(1);     label(\"Parent absorption rate (1/h)\")\n    lcl_p <- log(5);     label(\"Parent clearance (L/h)\")\n    lv_p  <- log(50);    label(\"Parent volume (L)\")\n    lfm   <- logit(0.5); label(\"Fraction metabolized\")\n    lcl_m <- log(10);    label(\"Metabolite clearance (L/h)\")\n    lv_m  <- log(30);    label(\"Metabolite volume (L)\")\n    eta.cl_p ~ 0.1\n    eta.cl_m ~ 0.1\n    prop.sd.p <- 0.2\n    prop.sd.m <- 0.25\n  })\n  model({\n    ka   <- exp(lka)\n    cl_p <- exp(lcl_p + eta.cl_p)\n    v_p  <- exp(lv_p)\n    fm   <- expit(lfm)\n    cl_m <- exp(lcl_m + eta.cl_m)\n    v_m  <- exp(lv_m)\n    d/dt(depot)    = -ka * depot\n    d/dt(parent)   =  ka * depot - cl_p/v_p * parent\n    d/dt(metabol)  =  fm * cl_p/v_p * parent * v_p/v_m - cl_m/v_m * metabol\n    Cp = parent  / v_p\n    Cm = metabol / v_m\n    Cp ~ prop(prop.sd.p)\n    Cm ~ prop(prop.sd.m)\n  })\n}"
+}

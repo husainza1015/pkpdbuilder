@@ -1,0 +1,7 @@
+{
+  "name": "pk_2cmt_iv_bolus_mm",
+  "category": "pk",
+  "description": "2-compartment, IV bolus, mixed linear + Michaelis-Menten elimination",
+  "monolix_equivalent": "bolus_2cpt_VClV2QVmKm",
+  "code": "pk_2cmt_iv_bolus_mm <- function() {\n  ini({\n    lcl  <- log(2);    label(\"Linear clearance (L/h)\")\n    lVm  <- log(10);   label(\"Maximum nonlinear elimination rate (mg/h)\")\n    lKm  <- log(5);    label(\"Michaelis-Menten constant (mg/L)\")\n    lv   <- log(50);   label(\"Central volume (L)\")\n    lv2  <- log(30);   label(\"Peripheral volume (L)\")\n    lq   <- log(3);    label(\"Intercompartmental clearance (L/h)\")\n    eta.cl ~ 0.1\n    eta.v  ~ 0.1\n    prop.sd <- 0.2\n  })\n  model({\n    cl <- exp(lcl + eta.cl)\n    Vm <- exp(lVm)\n    Km <- exp(lKm)\n    v  <- exp(lv  + eta.v)\n    v2 <- exp(lv2)\n    q  <- exp(lq)\n    d/dt(central)    = -cl/v * central - (Vm * central/v)/(Km + central/v) - q/v * central + q/v2 * peripheral\n    d/dt(peripheral) =  q/v * central - q/v2 * peripheral\n    Cc = central / v\n    Cc ~ prop(prop.sd)\n  })\n}"
+}

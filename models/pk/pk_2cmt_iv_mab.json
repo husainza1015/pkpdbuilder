@@ -1,0 +1,7 @@
+{
+  "name": "pk_2cmt_iv_mab",
+  "category": "pk",
+  "description": "2-CMT IV model parameterized for monoclonal antibodies \u2014 typical mAb PK",
+  "monolix_equivalent": "infusion_2cpt_VClV2Q (mAb parameterization)",
+  "code": "pk_2cmt_iv_mab <- function() {\n  ini({\n    lcl  <- log(0.2);    label(\"Clearance (L/day)\")\n    lv   <- log(3.5);    label(\"Central volume (L)\")\n    lv2  <- log(2.8);    label(\"Peripheral volume (L)\")\n    lq   <- log(0.5);    label(\"Intercompartmental clearance (L/day)\")\n    eta.cl ~ 0.15\n    eta.v  ~ 0.10\n    eta.v2 ~ 0.10\n    prop.sd <- 0.15\n  })\n  model({\n    cl <- exp(lcl + eta.cl) * (WT/70)^0.75\n    v  <- exp(lv  + eta.v)  * (WT/70)^1.0\n    v2 <- exp(lv2 + eta.v2) * (WT/70)^1.0\n    q  <- exp(lq)\n    Cc <- linCmt()\n    Cc ~ prop(prop.sd)\n  })\n}"
+}

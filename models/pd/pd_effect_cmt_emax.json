@@ -1,0 +1,7 @@
+{
+  "name": "pd_effect_cmt_emax",
+  "category": "pd",
+  "description": "Effect compartment Emax model \u2014 hysteresis via Ce delay",
+  "monolix_equivalent": "effectCpt_Emax",
+  "code": "pd_effect_cmt_emax <- function() {\n  ini({\n    lke0  <- log(0.5);  label(\"Effect compartment equilibration rate (1/h)\")\n    lE0   <- log(50);   label(\"Baseline effect\")\n    lEmax <- log(100);  label(\"Maximum drug effect\")\n    lEC50 <- log(10);   label(\"EC50 for effect compartment conc (mg/L)\")\n    eta.E0   ~ 0.1\n    eta.Emax ~ 0.1\n    add.sd <- 5\n  })\n  model({\n    ke0  <- exp(lke0)\n    E0   <- exp(lE0   + eta.E0)\n    Emax <- exp(lEmax + eta.Emax)\n    EC50 <- exp(lEC50)\n    d/dt(Ce) = ke0 * (Cc - Ce)\n    E = E0 + Emax * Ce / (EC50 + Ce)\n    E ~ add(add.sd)\n  })\n}"
+}

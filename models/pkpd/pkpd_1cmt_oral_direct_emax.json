@@ -1,0 +1,7 @@
+{
+  "name": "pkpd_1cmt_oral_direct_emax",
+  "category": "pkpd",
+  "description": "1-CMT oral PK + direct Emax PD \u2014 simultaneous PK/PD fitting",
+  "monolix_equivalent": "oral1_1cpt_kaVCl_direct_Emax",
+  "code": "pkpd_1cmt_oral_direct_emax <- function() {\n  ini({\n    lka   <- log(1);   label(\"Absorption rate constant (1/h)\")\n    lcl   <- log(5);   label(\"Clearance (L/h)\")\n    lv    <- log(50);  label(\"Volume (L)\")\n    lE0   <- log(10);  label(\"Baseline effect\")\n    lEmax <- log(50);  label(\"Maximum drug effect\")\n    lEC50 <- log(5);   label(\"EC50 (mg/L)\")\n    eta.ka   ~ 0.3\n    eta.cl   ~ 0.1\n    eta.v    ~ 0.1\n    eta.E0   ~ 0.1\n    eta.Emax ~ 0.1\n    prop.sd.pk <- 0.2\n    add.sd.pd  <- 5\n  })\n  model({\n    ka   <- exp(lka  + eta.ka)\n    cl   <- exp(lcl  + eta.cl)\n    v    <- exp(lv   + eta.v)\n    E0   <- exp(lE0  + eta.E0)\n    Emax <- exp(lEmax + eta.Emax)\n    EC50 <- exp(lEC50)\n    d/dt(depot)   = -ka * depot\n    d/dt(central) =  ka * depot - cl/v * central\n    Cc = central / v\n    E  = E0 + Emax * Cc / (EC50 + Cc)\n    Cc ~ prop(prop.sd.pk)\n    E  ~ add(add.sd.pd)\n  })\n}"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "pk_1cmt_oral_mm_tlag",
+  "category": "pk",
+  "description": "1-compartment, first-order oral absorption with lag time, Michaelis-Menten elimination",
+  "monolix_equivalent": "oral1_1cpt_TlagkaVVmKm",
+  "code": "pk_1cmt_oral_mm_tlag <- function() {\n  ini({\n    ltlag <- log(0.5); label(\"Absorption lag time (h)\")\n    lka   <- log(1);   label(\"Absorption rate constant (1/h)\")\n    lVm   <- log(10);  label(\"Maximum elimination rate (mg/h)\")\n    lKm   <- log(5);   label(\"Michaelis-Menten constant (mg/L)\")\n    lv    <- log(50);  label(\"Volume of distribution (L)\")\n    eta.ka ~ 0.3\n    eta.Vm ~ 0.1\n    eta.v  ~ 0.1\n    prop.sd <- 0.2\n  })\n  model({\n    tlag <- exp(ltlag)\n    ka   <- exp(lka + eta.ka)\n    Vm   <- exp(lVm + eta.Vm)\n    Km   <- exp(lKm)\n    v    <- exp(lv  + eta.v)\n    alag(depot) <- tlag\n    d/dt(depot)   = -ka * depot\n    d/dt(central) =  ka * depot - (Vm * central/v) / (Km + central/v)\n    Cc = central / v\n    Cc ~ prop(prop.sd)\n  })\n}"
+}

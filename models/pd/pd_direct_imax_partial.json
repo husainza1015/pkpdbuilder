@@ -1,0 +1,7 @@
+{
+  "name": "pd_direct_imax_partial",
+  "category": "pd",
+  "description": "Direct partial Imax model \u2014 inhibition bounded by Imax < 1",
+  "monolix_equivalent": "direct_Imax_partial",
+  "code": "pd_direct_imax_partial <- function() {\n  ini({\n    lE0   <- log(100);    label(\"Baseline effect\")\n    lImax <- logit(0.8);  label(\"Maximum fractional inhibition\")\n    lIC50 <- log(5);      label(\"Concentration for 50% inhibition (mg/L)\")\n    eta.E0 ~ 0.1\n    add.sd <- 5\n  })\n  model({\n    E0   <- exp(lE0 + eta.E0)\n    Imax <- expit(lImax)\n    IC50 <- exp(lIC50)\n    E = E0 * (1 - Imax * Cc / (IC50 + Cc))\n    E ~ add(add.sd)\n  })\n}"
+}

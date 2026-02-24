@@ -1,0 +1,7 @@
+{
+  "name": "pd_idr3_emax_sigmoid",
+  "category": "pd",
+  "description": "Indirect response Type III \u2014 stimulation of production (kin), sigmoidal Emax",
+  "monolix_equivalent": "turnover_kin_Emax_sigmoid",
+  "code": "pd_idr3_emax_sigmoid <- function() {\n  ini({\n    lR0    <- log(100);  label(\"Baseline response\")\n    lkout  <- log(0.1);  label(\"Response elimination rate (1/h)\")\n    lEmax  <- log(2);    label(\"Maximum stimulation (fold-change)\")\n    lEC50  <- log(10);   label(\"EC50 (mg/L)\")\n    lgamma <- log(1.5);  label(\"Hill coefficient\")\n    eta.R0   ~ 0.1\n    eta.EC50 ~ 0.1\n    add.sd <- 5\n  })\n  model({\n    R0    <- exp(lR0   + eta.R0)\n    kout  <- exp(lkout)\n    kin   <- R0 * kout\n    Emax  <- exp(lEmax)\n    EC50  <- exp(lEC50 + eta.EC50)\n    gamma <- exp(lgamma)\n    d/dt(response) = kin * (1 + Emax * Cc^gamma / (EC50^gamma + Cc^gamma)) - kout * response\n    response(0) <- R0\n    R = response\n    R ~ add(add.sd)\n  })\n}"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "pd_linear",
+  "category": "pd",
+  "description": "Linear PD model \u2014 effect proportional to concentration",
+  "monolix_equivalent": "linear",
+  "code": "pd_linear <- function() {\n  ini({\n    lE0    <- log(10); label(\"Baseline effect\")\n    lslope <- log(2);  label(\"Slope (effect/concentration)\")\n    eta.E0 ~ 0.1\n    add.sd <- 2\n  })\n  model({\n    E0    <- exp(lE0 + eta.E0)\n    slope <- exp(lslope)\n    E = E0 + slope * Cc\n    E ~ add(add.sd)\n  })\n}"
+}

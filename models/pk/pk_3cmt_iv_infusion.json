@@ -1,0 +1,7 @@
+{
+  "name": "pk_3cmt_iv_infusion",
+  "category": "pk",
+  "description": "3-compartment, IV infusion, linear elimination",
+  "monolix_equivalent": "infusion_3cpt_VClV2QV3Q2",
+  "code": "pk_3cmt_iv_infusion <- function() {\n  ini({\n    lcl  <- log(5);    label(\"Clearance (L/h)\")\n    lv   <- log(50);   label(\"Central volume (L)\")\n    lv2  <- log(30);   label(\"Shallow peripheral volume (L)\")\n    lq   <- log(3);    label(\"Intercompartmental clearance Q (L/h)\")\n    lv3  <- log(20);   label(\"Deep peripheral volume (L)\")\n    lq2  <- log(1);    label(\"Intercompartmental clearance Q2 (L/h)\")\n    eta.cl ~ 0.1\n    eta.v  ~ 0.1\n    prop.sd <- 0.2\n  })\n  model({\n    cl <- exp(lcl + eta.cl)\n    v  <- exp(lv  + eta.v)\n    v2 <- exp(lv2)\n    q  <- exp(lq)\n    v3 <- exp(lv3)\n    q2 <- exp(lq2)\n    Cc <- linCmt()\n    Cc ~ prop(prop.sd)\n  })\n}"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "pd_direct_emax_sigmoid",
+  "category": "pd",
+  "description": "Direct sigmoidal Emax model \u2014 with Hill coefficient",
+  "monolix_equivalent": "direct_Emax_sigmoid",
+  "code": "pd_direct_emax_sigmoid <- function() {\n  ini({\n    lE0    <- log(10);  label(\"Baseline effect\")\n    lEmax  <- log(50);  label(\"Maximum drug effect\")\n    lEC50  <- log(5);   label(\"Concentration for 50% effect (mg/L)\")\n    lgamma <- log(1.5); label(\"Hill coefficient\")\n    eta.E0   ~ 0.1\n    eta.Emax ~ 0.1\n    add.sd <- 2\n  })\n  model({\n    E0    <- exp(lE0   + eta.E0)\n    Emax  <- exp(lEmax + eta.Emax)\n    EC50  <- exp(lEC50)\n    gamma <- exp(lgamma)\n    E = E0 + Emax * Cc^gamma / (EC50^gamma + Cc^gamma)\n    E ~ add(add.sd)\n  })\n}"
+}

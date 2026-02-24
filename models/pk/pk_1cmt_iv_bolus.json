@@ -1,0 +1,7 @@
+{
+  "name": "pk_1cmt_iv_bolus",
+  "category": "pk",
+  "description": "1-compartment, IV bolus, linear elimination",
+  "monolix_equivalent": "bolus_1cpt_VCl",
+  "code": "pk_1cmt_iv_bolus <- function() {\n  ini({\n    lcl <- log(5);    label(\"Clearance (L/h)\")\n    lv  <- log(50);   label(\"Volume of distribution (L)\")\n    eta.cl ~ 0.1\n    eta.v  ~ 0.1\n    prop.sd <- 0.2\n  })\n  model({\n    cl <- exp(lcl + eta.cl)\n    v  <- exp(lv  + eta.v)\n    Cc <- linCmt()\n    Cc ~ prop(prop.sd)\n  })\n}"
+}

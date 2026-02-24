@@ -1,0 +1,7 @@
+{
+  "name": "count_poisson",
+  "category": "advanced",
+  "description": "Count data model \u2014 Poisson distribution with drug effect on rate",
+  "monolix_equivalent": "poisson",
+  "code": "# NOTE: Count models use family = poisson() in nlmixr2\ncount_poisson <- function() {\n  ini({\n    llambda0 <- log(5);   label(\"Baseline event rate\")\n    lEC50    <- log(10);   label(\"EC50 for rate reduction (mg/L)\")\n    lImax    <- logit(0.8); label(\"Maximum rate reduction\")\n    eta.lambda ~ 0.2\n  })\n  model({\n    lambda0 <- exp(llambda0 + eta.lambda)\n    EC50    <- exp(lEC50)\n    Imax    <- expit(lImax)\n    lambda  <- lambda0 * (1 - Imax * Cc / (IC50 + Cc))\n    Y ~ dpois(lambda)\n  })\n}"
+}

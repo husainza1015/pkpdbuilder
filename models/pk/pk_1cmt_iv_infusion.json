@@ -1,0 +1,7 @@
+{
+  "name": "pk_1cmt_iv_infusion",
+  "category": "pk",
+  "description": "1-compartment, IV infusion, linear elimination",
+  "monolix_equivalent": "infusion_1cpt_VCl",
+  "code": "pk_1cmt_iv_infusion <- function() {\n  ini({\n    lcl <- log(5);    label(\"Clearance (L/h)\")\n    lv  <- log(50);   label(\"Volume of distribution (L)\")\n    eta.cl ~ 0.1\n    eta.v  ~ 0.1\n    prop.sd <- 0.2\n  })\n  model({\n    cl <- exp(lcl + eta.cl)\n    v  <- exp(lv  + eta.v)\n    Cc <- linCmt()\n    Cc ~ prop(prop.sd)\n  })\n}"
+}

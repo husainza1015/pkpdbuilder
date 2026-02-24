@@ -1,0 +1,7 @@
+{
+  "name": "pk_1cmt_iv_bolus_mm",
+  "category": "pk",
+  "description": "1-compartment, IV bolus, Michaelis-Menten elimination",
+  "monolix_equivalent": "bolus_1cpt_VVmKm",
+  "code": "pk_1cmt_iv_bolus_mm <- function() {\n  ini({\n    lVm <- log(10);   label(\"Maximum elimination rate (mg/h)\")\n    lKm <- log(5);    label(\"Michaelis-Menten constant (mg/L)\")\n    lv  <- log(50);   label(\"Volume of distribution (L)\")\n    eta.Vm ~ 0.1\n    eta.v  ~ 0.1\n    prop.sd <- 0.2\n  })\n  model({\n    Vm <- exp(lVm + eta.Vm)\n    Km <- exp(lKm)\n    v  <- exp(lv  + eta.v)\n    d/dt(central) = -(Vm * central/v) / (Km + central/v)\n    Cc = central / v\n    Cc ~ prop(prop.sd)\n  })\n}"
+}

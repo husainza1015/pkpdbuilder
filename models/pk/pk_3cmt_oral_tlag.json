@@ -1,0 +1,7 @@
+{
+  "name": "pk_3cmt_oral_tlag",
+  "category": "pk",
+  "description": "3-compartment, first-order oral absorption with lag time, linear elimination",
+  "monolix_equivalent": "oral1_3cpt_TlagkaVClV2QV3Q2",
+  "code": "pk_3cmt_oral_tlag <- function() {\n  ini({\n    ltlag <- log(0.5); label(\"Absorption lag time (h)\")\n    lka   <- log(1);   label(\"Absorption rate constant (1/h)\")\n    lcl   <- log(5);   label(\"Clearance (L/h)\")\n    lv    <- log(50);  label(\"Central volume (L)\")\n    lv2   <- log(30);  label(\"Shallow peripheral volume (L)\")\n    lq    <- log(3);   label(\"Intercompartmental clearance Q (L/h)\")\n    lv3   <- log(20);  label(\"Deep peripheral volume (L)\")\n    lq2   <- log(1);   label(\"Intercompartmental clearance Q2 (L/h)\")\n    eta.ka ~ 0.3\n    eta.cl ~ 0.1\n    eta.v  ~ 0.1\n    prop.sd <- 0.2\n  })\n  model({\n    tlag <- exp(ltlag)\n    ka   <- exp(lka + eta.ka)\n    cl   <- exp(lcl + eta.cl)\n    v    <- exp(lv  + eta.v)\n    v2   <- exp(lv2)\n    q    <- exp(lq)\n    v3   <- exp(lv3)\n    q2   <- exp(lq2)\n    alag(depot) <- tlag\n    d/dt(depot)       = -ka * depot\n    d/dt(central)     =  ka * depot - (cl/v + q/v + q2/v) * central + q/v2 * periph1 + q2/v3 * periph2\n    d/dt(periph1)     =  q/v * central - q/v2 * periph1\n    d/dt(periph2)     =  q2/v * central - q2/v3 * periph2\n    Cc = central / v\n    Cc ~ prop(prop.sd)\n  })\n}"
+}

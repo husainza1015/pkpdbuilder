@@ -1,0 +1,7 @@
+{
+  "name": "pk_1cmt_oral_zero_order",
+  "category": "pk",
+  "description": "1-compartment, zero-order oral absorption, linear elimination",
+  "monolix_equivalent": "oral0_1cpt_TkVCl",
+  "code": "pk_1cmt_oral_zero_order <- function() {\n  ini({\n    lTk  <- log(2);   label(\"Absorption duration (h)\")\n    lcl  <- log(5);   label(\"Clearance (L/h)\")\n    lv   <- log(50);  label(\"Volume of distribution (L)\")\n    eta.cl ~ 0.1\n    eta.v  ~ 0.1\n    prop.sd <- 0.2\n  })\n  model({\n    Tk <- exp(lTk)\n    cl <- exp(lcl + eta.cl)\n    v  <- exp(lv  + eta.v)\n    dur(depot) <- Tk\n    d/dt(depot)   = -depot / Tk\n    d/dt(central) =  depot / Tk - cl/v * central\n    Cc = central / v\n    Cc ~ prop(prop.sd)\n  })\n}"
+}

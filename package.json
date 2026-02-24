@@ -1,0 +1,27 @@
+{
+  "name": "pkpdbuilder",
+  "version": "0.3.0",
+  "description": "The Pharmacometrician's Co-Pilot — MCP tools for Claude Code",
+  "author": "Husain Z Attarwala, PhD",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "pkpdbuilder": "./dist/cli.js"
+  },
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "chalk": "^5.0.0",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0",
+    "tsx": "^4.0.0"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "pkpd_1cmt_oral_idr1",
+  "category": "pkpd",
+  "description": "1-CMT oral PK + IDR Type I (inhibition of kin) \u2014 turnover model",
+  "monolix_equivalent": "oral1_1cpt_kaVCl_turnover_kin_Imax",
+  "code": "pkpd_1cmt_oral_idr1 <- function() {\n  ini({\n    lka   <- log(1);      label(\"Absorption rate constant (1/h)\")\n    lcl   <- log(5);      label(\"Clearance (L/h)\")\n    lv    <- log(50);     label(\"Volume (L)\")\n    lR0   <- log(100);    label(\"Baseline response\")\n    lkout <- log(0.1);    label(\"Response elimination rate (1/h)\")\n    lIC50 <- log(10);     label(\"IC50 (mg/L)\")\n    lImax <- logit(0.9);  label(\"Maximum inhibition fraction\")\n    eta.ka   ~ 0.3\n    eta.cl   ~ 0.1\n    eta.R0   ~ 0.1\n    eta.IC50 ~ 0.1\n    prop.sd.pk <- 0.2\n    add.sd.pd  <- 5\n  })\n  model({\n    ka   <- exp(lka  + eta.ka)\n    cl   <- exp(lcl  + eta.cl)\n    v    <- exp(lv)\n    R0   <- exp(lR0  + eta.R0)\n    kout <- exp(lkout)\n    kin  <- R0 * kout\n    IC50 <- exp(lIC50 + eta.IC50)\n    Imax <- expit(lImax)\n    d/dt(depot)    = -ka * depot\n    d/dt(central)  =  ka * depot - cl/v * central\n    d/dt(response) =  kin * (1 - Imax * Cc / (IC50 + Cc)) - kout * response\n    response(0) <- R0\n    Cc = central / v\n    R  = response\n    Cc ~ prop(prop.sd.pk)\n    R  ~ add(add.sd.pd)\n  })\n}"
+}

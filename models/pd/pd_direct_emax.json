@@ -1,0 +1,7 @@
+{
+  "name": "pd_direct_emax",
+  "category": "pd",
+  "description": "Direct Emax model \u2014 stimulatory drug effect",
+  "monolix_equivalent": "direct_Emax",
+  "code": "pd_direct_emax <- function() {\n  ini({\n    lE0   <- log(10);  label(\"Baseline effect\")\n    lEmax <- log(50);  label(\"Maximum drug effect\")\n    lEC50 <- log(5);   label(\"Concentration for 50% effect (mg/L)\")\n    eta.E0   ~ 0.1\n    eta.Emax ~ 0.1\n    add.sd <- 2\n  })\n  model({\n    E0   <- exp(lE0   + eta.E0)\n    Emax <- exp(lEmax + eta.Emax)\n    EC50 <- exp(lEC50)\n    E = E0 + Emax * Cc / (EC50 + Cc)\n    E ~ add(add.sd)\n  })\n}"
+}

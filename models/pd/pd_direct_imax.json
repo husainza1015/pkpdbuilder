@@ -1,0 +1,7 @@
+{
+  "name": "pd_direct_imax",
+  "category": "pd",
+  "description": "Direct Imax model \u2014 full inhibitory drug effect",
+  "monolix_equivalent": "direct_Imax",
+  "code": "pd_direct_imax <- function() {\n  ini({\n    lE0   <- log(100); label(\"Baseline effect\")\n    lIC50 <- log(5);   label(\"Concentration for 50% inhibition (mg/L)\")\n    eta.E0 ~ 0.1\n    add.sd <- 5\n  })\n  model({\n    E0   <- exp(lE0 + eta.E0)\n    IC50 <- exp(lIC50)\n    E = E0 * (1 - Cc / (IC50 + Cc))\n    E ~ add(add.sd)\n  })\n}"
+}

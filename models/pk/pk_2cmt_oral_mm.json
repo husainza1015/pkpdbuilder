@@ -1,0 +1,7 @@
+{
+  "name": "pk_2cmt_oral_mm",
+  "category": "pk",
+  "description": "2-compartment, first-order oral absorption, Michaelis-Menten elimination",
+  "monolix_equivalent": "oral1_2cpt_kaVClV2QVmKm",
+  "code": "pk_2cmt_oral_mm <- function() {\n  ini({\n    lka  <- log(1);    label(\"Absorption rate constant (1/h)\")\n    lVm  <- log(10);   label(\"Maximum elimination rate (mg/h)\")\n    lKm  <- log(5);    label(\"Michaelis-Menten constant (mg/L)\")\n    lv   <- log(50);   label(\"Central volume (L)\")\n    lv2  <- log(30);   label(\"Peripheral volume (L)\")\n    lq   <- log(3);    label(\"Intercompartmental clearance (L/h)\")\n    eta.ka ~ 0.3\n    eta.Vm ~ 0.1\n    eta.v  ~ 0.1\n    prop.sd <- 0.2\n  })\n  model({\n    ka <- exp(lka + eta.ka)\n    Vm <- exp(lVm + eta.Vm)\n    Km <- exp(lKm)\n    v  <- exp(lv  + eta.v)\n    v2 <- exp(lv2)\n    q  <- exp(lq)\n    d/dt(depot)      = -ka * depot\n    d/dt(central)    =  ka * depot - (Vm * central/v)/(Km + central/v) - q/v * central + q/v2 * peripheral\n    d/dt(peripheral) =  q/v * central - q/v2 * peripheral\n    Cc = central / v\n    Cc ~ prop(prop.sd)\n  })\n}"
+}

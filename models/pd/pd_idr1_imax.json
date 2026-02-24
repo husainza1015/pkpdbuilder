@@ -1,0 +1,7 @@
+{
+  "name": "pd_idr1_imax",
+  "category": "pd",
+  "description": "Indirect response Type I \u2014 inhibition of production (kin), Imax model",
+  "monolix_equivalent": "turnover_kin_Imax",
+  "code": "pd_idr1_imax <- function() {\n  ini({\n    lR0   <- log(100);   label(\"Baseline response\")\n    lkout <- log(0.1);   label(\"Response elimination rate (1/h)\")\n    lIC50 <- log(10);    label(\"IC50 (mg/L)\")\n    lImax <- logit(0.9); label(\"Maximum inhibition fraction\")\n    eta.R0   ~ 0.1\n    eta.IC50 ~ 0.1\n    add.sd <- 5\n  })\n  model({\n    R0   <- exp(lR0   + eta.R0)\n    kout <- exp(lkout)\n    kin  <- R0 * kout\n    IC50 <- exp(lIC50 + eta.IC50)\n    Imax <- expit(lImax)\n    d/dt(response) = kin * (1 - Imax * Cc / (IC50 + Cc)) - kout * response\n    response(0) <- R0\n    R = response\n    R ~ add(add.sd)\n  })\n}"
+}

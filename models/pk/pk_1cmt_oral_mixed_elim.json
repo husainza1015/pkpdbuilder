@@ -1,0 +1,7 @@
+{
+  "name": "pk_1cmt_oral_mixed_elim",
+  "category": "pk",
+  "description": "1-compartment, first-order oral absorption, mixed linear + Michaelis-Menten elimination",
+  "monolix_equivalent": "oral1_1cpt_kaVClVmKm",
+  "code": "pk_1cmt_oral_mixed_elim <- function() {\n  ini({\n    lka  <- log(1);    label(\"Absorption rate constant (1/h)\")\n    lcl  <- log(2);    label(\"Linear clearance (L/h)\")\n    lVm  <- log(10);   label(\"Maximum nonlinear elimination rate (mg/h)\")\n    lKm  <- log(5);    label(\"Michaelis-Menten constant (mg/L)\")\n    lv   <- log(50);   label(\"Volume of distribution (L)\")\n    eta.ka ~ 0.3\n    eta.cl ~ 0.1\n    eta.v  ~ 0.1\n    prop.sd <- 0.2\n  })\n  model({\n    ka <- exp(lka + eta.ka)\n    cl <- exp(lcl + eta.cl)\n    Vm <- exp(lVm)\n    Km <- exp(lKm)\n    v  <- exp(lv  + eta.v)\n    d/dt(depot)   = -ka * depot\n    d/dt(central) =  ka * depot - cl/v * central - (Vm * central/v) / (Km + central/v)\n    Cc = central / v\n    Cc ~ prop(prop.sd)\n  })\n}"
+}
