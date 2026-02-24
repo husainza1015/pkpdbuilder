@@ -3,7 +3,7 @@
  * Author: Husain Z Attarwala, PhD
  */
 
-import { Tool } from '../providers/base.js';
+import { Tool } from '../types.js';
 import * as dataTools from './data.js';
 import * as modelingTools from './modeling.js';
 import * as diagnosticsTools from './diagnostics.js';

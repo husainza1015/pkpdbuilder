@@ -3,7 +3,7 @@
  * Author: Husain Z Attarwala, PhD
  */
 
-import { Tool } from '../providers/base.js';
+import { Tool } from '../types.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 

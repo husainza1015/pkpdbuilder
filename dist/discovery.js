@@ -1,12 +1,11 @@
 /**
- * Environment auto-discovery: R installation, datasets, API keys
+ * Environment auto-discovery: R installation, datasets
  * Author: Husain Z Attarwala, PhD
  */
 import { execSync, spawnSync } from 'child_process';
 import { existsSync, readdirSync, statSync } from 'fs';
 import { join, extname } from 'path';
 import { platform } from 'os';
-import { getApiKey, PROVIDERS } from './config.js';
 /**
  * Find Rscript executable on the system
  */
@@ -55,7 +54,6 @@ export function findRscript() {
         }
     }
     else if (isMac) {
-        // macOS common paths
         const macPaths = [
             '/usr/local/bin/Rscript',
             '/opt/homebrew/bin/Rscript',
@@ -65,7 +63,6 @@ export function findRscript() {
             if (existsSync(path))
                 return path;
         }
-        // Check Framework versions
         const frameworkDir = '/Library/Frameworks/R.framework/Versions';
         if (existsSync(frameworkDir)) {
             try {
@@ -85,12 +82,7 @@ export function findRscript() {
         }
     }
     else {
-        // Linux common paths
-        const linuxPaths = [
-            '/usr/bin/Rscript',
-            '/usr/local/bin/Rscript',
-            '/opt/R/bin/Rscript',
-        ];
+        const linuxPaths = ['/usr/bin/Rscript', '/usr/local/bin/Rscript', '/opt/R/bin/Rscript'];
         for (const path of linuxPaths) {
             if (existsSync(path))
                 return path;
@@ -118,19 +110,10 @@ export function getRVersion(rscript) {
  * Check which R packages are installed
  */
 export function checkRPackages(rscript) {
-    const packages = {
-        nlmixr2: false,
-        mrgsolve: false,
-        PKNCA: false,
-        xgxr: false,
-        ggplot2: false,
-    };
+    const packages = { nlmixr2: false, mrgsolve: false, PKNCA: false, xgxr: false, ggplot2: false };
     try {
-        const code = `
-      installed <- installed.packages()[,"Package"]
-      cat(paste(c("nlmixr2", "mrgsolve", "PKNCA", "xgxr", "ggplot2") %in% installed, collapse=","))
-    `;
-        const result = execSync(`"${rscript}" -e "${code.replace(/\n/g, ' ')}"`, {
+        const code = `installed <- installed.packages()[,"Package"]; cat(paste(c("nlmixr2","mrgsolve","PKNCA","xgxr","ggplot2") %in% installed, collapse=","))`;
+        const result = execSync(`"${rscript}" -e "${code}"`, {
             encoding: 'utf-8',
             stdio: 'pipe',
         });
@@ -142,7 +125,7 @@ export function checkRPackages(rscript) {
         packages.ggplot2 = values[4] || false;
     }
     catch (e) {
-        // All false if check fails
+        // All false
     }
     return packages;
 }
@@ -156,13 +139,7 @@ export function discoverR() {
             found: false,
             path: '',
             version: '',
-            packages: {
-                nlmixr2: false,
-                mrgsolve: false,
-                PKNCA: false,
-                xgxr: false,
-                ggplot2: false,
-            },
+            packages: { nlmixr2: false, mrgsolve: false, PKNCA: false, xgxr: false, ggplot2: false },
         };
     }
     return {
@@ -188,7 +165,6 @@ export function scanForDatasets(dir = process.cwd(), maxDepth = 2) {
                 try {
                     const stat = statSync(fullPath);
                     if (stat.isDirectory()) {
-                        // Skip node_modules, .git, etc.
                         if (!entry.startsWith('.') && entry !== 'node_modules') {
                             scan(fullPath, depth + 1);
                         }
@@ -196,52 +172,17 @@ export function scanForDatasets(dir = process.cwd(), maxDepth = 2) {
                     else if (stat.isFile()) {
                         const ext = extname(entry).toLowerCase();
                         if (validExtensions.includes(ext)) {
-                            datasets.push({
-                                name: entry,
-                                path: fullPath,
-                                size: stat.size,
-                            });
+                            datasets.push({ name: entry, path: fullPath, size: stat.size });
                         }
                     }
                 }
-                catch (e) {
-                    // Skip files we can't stat
-                }
+                catch (e) { /* skip */ }
             }
         }
-        catch (e) {
-            // Skip directories we can't read
-        }
+        catch (e) { /* skip */ }
     }
     scan(dir, 0);
     return datasets;
-}
-/**
- * Check which API keys are available
- */
-export function checkApiKeys() {
-    const results = [];
-    for (const [provider, info] of Object.entries(PROVIDERS)) {
-        if (info.local) {
-            // Check if Ollama is running
-            try {
-                const response = execSync('curl -s http://localhost:11434/api/tags', {
-                    encoding: 'utf-8',
-                    stdio: 'pipe',
-                    timeout: 2000,
-                });
-                results.push({ provider, found: !!response });
-            }
-            catch (e) {
-                results.push({ provider, found: false });
-            }
-        }
-        else {
-            const key = getApiKey(provider);
-            results.push({ provider, found: !!key });
-        }
-    }
-    return results;
 }
 /**
  * Check for project-specific files
@@ -251,18 +192,6 @@ export function checkProjectFiles(dir = process.cwd()) {
         memory: existsSync(join(dir, 'MEMORY.md')) || existsSync(join(dir, '.pkpdbuilder', 'memory.json')),
         models: existsSync(join(dir, 'models')) || existsSync(join(dir, 'pkpdbuilder_output', 'models')),
         reports: existsSync(join(dir, 'reports')) || existsSync(join(dir, 'pkpdbuilder_output', 'reports')),
-    };
-}
-/**
- * Run full environment discovery
- */
-export function discoverEnvironment(dir) {
-    const targetDir = dir || process.cwd();
-    return {
-        r: discoverR(),
-        datasets: scanForDatasets(targetDir),
-        apiKeys: checkApiKeys(),
-        projectFiles: checkProjectFiles(targetDir),
     };
 }
 //# sourceMappingURL=discovery.js.map

@@ -1,31 +1,35 @@
 {
   "name": "pkpdbuilder",
-  "version": "0.2.0",
-  "description": "The Pharmacometrician's Co-Pilot",
+  "version": "0.3.0",
+  "description": "The Pharmacometrician's Co-Pilot — Claude Code wrapper for pharmacometrics",
   "author": "Husain Z Attarwala, PhD",
   "license": "MIT",
+  "type": "module",
   "bin": {
     "pkpdbuilder": "./dist/index.js"
   },
+  "files": [
+    "dist/**/*",
+    "src/r-scripts/**/*",
+    "src/models/**/*",
+    "CLAUDE.md",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
+    "mcp": "node dist/mcp-server.js",
     "watch": "tsc --watch"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.40.0",
-    "@google/generative-ai": "^0.21.0",
     "@modelcontextprotocol/sdk": "^1.27.0",
     "chalk": "^5.0.0",
     "commander": "^12.0.0",
     "conf": "^12.0.0",
-    "inquirer": "^9.0.0",
-    "openai": "^4.0.0",
-    "ora": "^8.0.0"
+    "zod": "^3.22.0"
   },
   "devDependencies": {
-    "@types/inquirer": "^9.0.0",
     "@types/node": "^20.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.4.0"

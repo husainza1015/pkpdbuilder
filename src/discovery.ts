@@ -1,13 +1,12 @@
 /**
- * Environment auto-discovery: R installation, datasets, API keys
+ * Environment auto-discovery: R installation, datasets
  * Author: Husain Z Attarwala, PhD
  */
 
 import { execSync, spawnSync } from 'child_process';
 import { existsSync, readdirSync, statSync } from 'fs';
 import { join, extname } from 'path';
-import { platform, homedir } from 'os';
-import { getApiKey, PROVIDERS } from './config.js';
+import { platform } from 'os';
 
 export interface REnvironment {
   found: boolean;
@@ -26,22 +25,6 @@ export interface Dataset {
   name: string;
   path: string;
   size: number;
-  rows?: number;
-  columns?: number;
-}
-
-export interface DiscoveryResult {
-  r: REnvironment;
-  datasets: Dataset[];
-  apiKeys: {
-    provider: string;
-    found: boolean;
-  }[];
-  projectFiles: {
-    memory: boolean;
-    models: boolean;
-    reports: boolean;
-  };
 }
 
 /**
@@ -91,18 +74,15 @@ export function findRscript(): string | null {
       }
     }
   } else if (isMac) {
-    // macOS common paths
     const macPaths = [
       '/usr/local/bin/Rscript',
       '/opt/homebrew/bin/Rscript',
       '/Library/Frameworks/R.framework/Versions/Current/Resources/bin/Rscript',
     ];
-    
     for (const path of macPaths) {
       if (existsSync(path)) return path;
     }
 
-    // Check Framework versions
     const frameworkDir = '/Library/Frameworks/R.framework/Versions';
     if (existsSync(frameworkDir)) {
       try {
@@ -110,7 +90,6 @@ export function findRscript(): string | null {
           .filter(d => d.match(/^\d+\.\d+$/))
           .sort()
           .reverse();
-        
         for (const version of versions) {
           const rscript = join(frameworkDir, version, 'Resources', 'bin', 'Rscript');
           if (existsSync(rscript)) return rscript;
@@ -120,13 +99,7 @@ export function findRscript(): string | null {
       }
     }
   } else {
-    // Linux common paths
-    const linuxPaths = [
-      '/usr/bin/Rscript',
-      '/usr/local/bin/Rscript',
-      '/opt/R/bin/Rscript',
-    ];
-    
+    const linuxPaths = ['/usr/bin/Rscript', '/usr/local/bin/Rscript', '/opt/R/bin/Rscript'];
     for (const path of linuxPaths) {
       if (existsSync(path)) return path;
     }
@@ -155,25 +128,14 @@ export function getRVersion(rscript: string): string {
  * Check which R packages are installed
  */
 export function checkRPackages(rscript: string): REnvironment['packages'] {
-  const packages = {
-    nlmixr2: false,
-    mrgsolve: false,
-    PKNCA: false,
-    xgxr: false,
-    ggplot2: false,
-  };
+  const packages = { nlmixr2: false, mrgsolve: false, PKNCA: false, xgxr: false, ggplot2: false };
 
   try {
-    const code = `
-      installed <- installed.packages()[,"Package"]
-      cat(paste(c("nlmixr2", "mrgsolve", "PKNCA", "xgxr", "ggplot2") %in% installed, collapse=","))
-    `;
-    
-    const result = execSync(`"${rscript}" -e "${code.replace(/\n/g, ' ')}"`, {
+    const code = `installed <- installed.packages()[,"Package"]; cat(paste(c("nlmixr2","mrgsolve","PKNCA","xgxr","ggplot2") %in% installed, collapse=","))`;
+    const result = execSync(`"${rscript}" -e "${code}"`, {
       encoding: 'utf-8',
       stdio: 'pipe',
     });
-    
     const values = result.trim().split(',').map(v => v.trim() === 'TRUE');
     packages.nlmixr2 = values[0] || false;
     packages.mrgsolve = values[1] || false;
@@ -181,7 +143,7 @@ export function checkRPackages(rscript: string): REnvironment['packages'] {
     packages.xgxr = values[3] || false;
     packages.ggplot2 = values[4] || false;
   } catch (e) {
-    // All false if check fails
+    // All false
   }
 
   return packages;
@@ -192,19 +154,12 @@ export function checkRPackages(rscript: string): REnvironment['packages'] {
  */
 export function discoverR(): REnvironment {
   const rscript = findRscript();
-  
   if (!rscript) {
     return {
       found: false,
       path: '',
       version: '',
-      packages: {
-        nlmixr2: false,
-        mrgsolve: false,
-        PKNCA: false,
-        xgxr: false,
-        ggplot2: false,
-      },
+      packages: { nlmixr2: false, mrgsolve: false, PKNCA: false, xgxr: false, ggplot2: false },
     };
   }
 
@@ -225,38 +180,25 @@ export function scanForDatasets(dir: string = process.cwd(), maxDepth: number = 
 
   function scan(currentDir: string, depth: number) {
     if (depth > maxDepth) return;
-
     try {
       const entries = readdirSync(currentDir);
-      
       for (const entry of entries) {
         const fullPath = join(currentDir, entry);
-        
         try {
           const stat = statSync(fullPath);
-          
           if (stat.isDirectory()) {
-            // Skip node_modules, .git, etc.
             if (!entry.startsWith('.') && entry !== 'node_modules') {
               scan(fullPath, depth + 1);
             }
           } else if (stat.isFile()) {
             const ext = extname(entry).toLowerCase();
             if (validExtensions.includes(ext)) {
-              datasets.push({
-                name: entry,
-                path: fullPath,
-                size: stat.size,
-              });
+              datasets.push({ name: entry, path: fullPath, size: stat.size });
             }
           }
-        } catch (e) {
-          // Skip files we can't stat
-        }
+        } catch (e) { /* skip */ }
       }
-    } catch (e) {
-      // Skip directories we can't read
-    }
+    } catch (e) { /* skip */ }
   }
 
   scan(dir, 0);
@@ -264,54 +206,12 @@ export function scanForDatasets(dir: string = process.cwd(), maxDepth: number = 
 }
 
 /**
- * Check which API keys are available
- */
-export function checkApiKeys(): { provider: string; found: boolean }[] {
-  const results: { provider: string; found: boolean }[] = [];
-
-  for (const [provider, info] of Object.entries(PROVIDERS)) {
-    if (info.local) {
-      // Check if Ollama is running
-      try {
-        const response = execSync('curl -s http://localhost:11434/api/tags', {
-          encoding: 'utf-8',
-          stdio: 'pipe',
-          timeout: 2000,
-        });
-        results.push({ provider, found: !!response });
-      } catch (e) {
-        results.push({ provider, found: false });
-      }
-    } else {
-      const key = getApiKey(provider);
-      results.push({ provider, found: !!key });
-    }
-  }
-
-  return results;
-}
-
-/**
  * Check for project-specific files
  */
-export function checkProjectFiles(dir: string = process.cwd()): DiscoveryResult['projectFiles'] {
+export function checkProjectFiles(dir: string = process.cwd()) {
   return {
     memory: existsSync(join(dir, 'MEMORY.md')) || existsSync(join(dir, '.pkpdbuilder', 'memory.json')),
     models: existsSync(join(dir, 'models')) || existsSync(join(dir, 'pkpdbuilder_output', 'models')),
     reports: existsSync(join(dir, 'reports')) || existsSync(join(dir, 'pkpdbuilder_output', 'reports')),
-  };
-}
-
-/**
- * Run full environment discovery
- */
-export function discoverEnvironment(dir?: string): DiscoveryResult {
-  const targetDir = dir || process.cwd();
-  
-  return {
-    r: discoverR(),
-    datasets: scanForDatasets(targetDir),
-    apiKeys: checkApiKeys(),
-    projectFiles: checkProjectFiles(targetDir),
   };
 }

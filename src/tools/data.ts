@@ -3,7 +3,7 @@
  * Author: Husain Z Attarwala, PhD
  */
 
-import { Tool } from '../providers/base.js';
+import { Tool } from '../types.js';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { runRScript } from '../r-bridge.js';

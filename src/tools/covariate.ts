@@ -3,7 +3,7 @@
  * Author: Husain Z Attarwala, PhD
  */
 
-import { Tool } from '../providers/base.js';
+import { Tool } from '../types.js';
 
 export const covariateScreeningTool: Tool = {
   name: 'covariate_screening',
