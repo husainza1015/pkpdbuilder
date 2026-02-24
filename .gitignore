@@ -37,3 +37,7 @@ pkpdbuilder_output/*.rds
 pkpdbuilder_output/*.png
 pkpdbuilder_output/*.html
 pkpdbuilder_output/*.Rmd
+
+# Internal
+PLAN.md
+research/
