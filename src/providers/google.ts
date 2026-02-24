@@ -54,19 +54,21 @@ export class GoogleProvider implements Provider {
         parts: [{ text: m.content }],
       }));
 
-    const config: any = {
+    const generationConfig: any = {
       maxOutputTokens: this.maxTokens,
       temperature: this.temperature,
     };
 
+    const chatOptions: any = {
+      history: geminiMessages.slice(0, -1),
+      generationConfig,
+    };
+
     if (tools && tools.length > 0) {
-      config.tools = [{ functionDeclarations: this.convertToolsToGemini(tools) }];
+      chatOptions.tools = [{ functionDeclarations: this.convertToolsToGemini(tools) }];
     }
 
-    const chat = model.startChat({
-      history: geminiMessages.slice(0, -1),
-      generationConfig: config,
-    });
+    const chat = model.startChat(chatOptions);
 
     const lastMessage = geminiMessages[geminiMessages.length - 1];
     const result = await chat.sendMessage(lastMessage.parts[0].text);
@@ -117,19 +119,21 @@ export class GoogleProvider implements Provider {
         parts: [{ text: m.content }],
       }));
 
-    const config: any = {
+    const generationConfig: any = {
       maxOutputTokens: this.maxTokens,
       temperature: this.temperature,
     };
 
+    const chatOptions: any = {
+      history: geminiMessages.slice(0, -1),
+      generationConfig,
+    };
+
     if (tools && tools.length > 0) {
-      config.tools = [{ functionDeclarations: this.convertToolsToGemini(tools) }];
+      chatOptions.tools = [{ functionDeclarations: this.convertToolsToGemini(tools) }];
     }
 
-    const chat = model.startChat({
-      history: geminiMessages.slice(0, -1),
-      generationConfig: config,
-    });
+    const chat = model.startChat(chatOptions);
 
     const lastMessage = geminiMessages[geminiMessages.length - 1];
     const result = await chat.sendMessageStream(lastMessage.parts[0].text);
