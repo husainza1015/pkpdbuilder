@@ -1,5 +1,5 @@
 node_modules/
-dist/
+# dist/ — committed so npm install from GitHub works
 *.js.map
 *.d.ts
 reference/
