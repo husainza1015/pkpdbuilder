@@ -50,9 +50,17 @@ PROVIDERS = {
     "google": {
         "name": "Google (Gemini)",
         "models": [
+            # Gemini 3.x (preview)
+            "gemini-3.1-pro-preview",
+            "gemini-3-pro-preview",
+            "gemini-3-flash-preview",
+            # Gemini 2.5 (stable)
             "gemini-2.5-pro",
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
+            # Gemini 2.0 (legacy)
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
         ],
         "default": "gemini-2.5-flash",
         "env_key": "GOOGLE_API_KEY",
