@@ -396,15 +396,21 @@ class PKPDBuilderAgent:
         # Build contents from message history
         contents = self._messages_to_gemini_format()
         
+        # Build config — disable thinking for tool-use models to avoid empty responses
+        gen_config = types.GenerateContentConfig(
+            system_instruction=self._get_system_prompt(),
+            tools=gemini_tools,
+            max_output_tokens=self.config.get("max_tokens", 8192),
+        )
+        # Gemini 2.5 "thinking" models can exhaust budget on reasoning with many tools
+        if "2.5" in self.model:
+            gen_config.thinking_config = types.ThinkingConfig(thinking_budget=1024)
+        
         # Send request with tools
         response = self.client.models.generate_content(
             model=self.model,
             contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=self._get_system_prompt(),
-                tools=gemini_tools,
-                max_output_tokens=self.config.get("max_tokens", 8192),
-            ),
+            config=gen_config,
         )
         
         # Handle function calls in a loop
@@ -436,15 +442,15 @@ class PKPDBuilderAgent:
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=self._get_system_prompt(),
-                    tools=gemini_tools,
-                    max_output_tokens=self.config.get("max_tokens", 8192),
-                ),
+                config=gen_config,
             )
         
-        text = response.text if hasattr(response, 'text') and response.text else ""
-        if not text and response.candidates:
+        text = ""
+        try:
+            text = response.text or ""
+        except (AttributeError, ValueError):
+            pass
+        if not text and response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
             for part in response.candidates[0].content.parts:
                 if hasattr(part, 'text') and part.text:
                     text += part.text

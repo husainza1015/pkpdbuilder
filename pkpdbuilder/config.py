@@ -59,8 +59,7 @@ PROVIDERS = {
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
             # Gemini 2.0
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
+            # gemini-2.0-flash — deprecated by Google, removed
         ],
         "default": "gemini-2.5-pro",
         "env_key": "GOOGLE_API_KEY",
