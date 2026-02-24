@@ -509,9 +509,9 @@ class PKPDBuilderAgent:
             role = m["role"]
             content = m.get("content", "")
             if role == "user" and isinstance(content, str):
-                contents.append(types.Content(role="user", parts=[types.Part.from_text(content)]))
+                contents.append(types.Content(role="user", parts=[types.Part.from_text(text=content)]))
             elif role == "assistant" and isinstance(content, str):
-                contents.append(types.Content(role="model", parts=[types.Part.from_text(content)]))
+                contents.append(types.Content(role="model", parts=[types.Part.from_text(text=content)]))
         return contents
     
     # ── Shared ──────────────────────────────────────────────
